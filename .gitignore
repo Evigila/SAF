@@ -1,2 +1,5 @@
 .agents/backups/
+/.agent/backup/
+/.agent/saf_log/
+/.agent/operation.lock
 *.tmp

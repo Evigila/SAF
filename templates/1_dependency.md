@@ -34,7 +34,7 @@ Record project-to-project dependencies separately from external package dependen
 
 ## SDKs, frameworks, and runtimes
 
-Include required toolchains, target frameworks, runtime requirements, and relevant pinning or compatibility constraints.
+Include required toolchains, target frameworks, runtime requirements, and relevant pinning or compatibility constraints. Record SAF's existing Git/PowerShell requirements separately from the application's runtime dependencies; its Windows BAT interfaces do not imply a Windows-only application. Do not install software merely to populate this inventory.
 
 | Dependency | Declared constraint | Observed/resolved version | Consumers | Usage scope | Purpose | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |

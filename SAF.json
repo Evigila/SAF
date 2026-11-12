@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 1,
+  "frameworkVersion": "2.0.0",
+  "handlerProtocolVersion": 1,
+  "repository": "Evigila/AGENTS.md",
+  "bootstrapFiles": [
+    "origin.bat",
+    "local.bat",
+    "scripts/origin.ps1",
+    "scripts/local.ps1",
+    "scripts/saf-core.ps1"
+  ],
+  "files": [
+    {
+      "source": "AGENTS.md",
+      "target": "AGENTS.md",
+      "mode": "managed",
+      "sha256": "f677c314947cfa1d2c0d6c48cdf8a7267da575bc786737f01567edecda4f0b22"
+    },
+    {
+      "source": "debug.bat",
+      "target": "debug.bat",
+      "mode": "seed",
+      "sha256": "e38267454c6bff1c1e6d2c3f0417b54b7ebac0addbdd9cedf12c7caffa211c9d"
+    },
+    {
+      "source": "docs-ai/common/rules.md",
+      "target": "docs-ai/common/rules.md",
+      "mode": "managed",
+      "sha256": "d623cb32fbe5cb95f953b0c9a694df9eb87bf60547c13ac0f4a31ecf625e36d4"
+    },
+    {
+      "source": "docs-ai/common/codedesign.md",
+      "target": "docs-ai/common/codedesign.md",
+      "mode": "managed",
+      "sha256": "d6ba08ccd7cae877efaa2d2acc68ad675b2ccc01016d3ac940ce1a926b2d0187"
+    },
+    {
+      "source": "docs-ai/common/UIUX.md",
+      "target": "docs-ai/common/UIUX.md",
+      "mode": "managed",
+      "sha256": "3d19c86ed75a4b37f0e014cc7354d17921db4b0f1bd76ea7748b802ac4ccc482"
+    },
+    {
+      "source": ".agents/skills/audit-project-docs/SKILL.md",
+      "target": ".agents/skills/audit-project-docs/SKILL.md",
+      "mode": "managed",
+      "sha256": "e2f90d16df18cc77661da1b2ed6a6f7c13a57523b71702a24cff6ac40a5f962f"
+    },
+    {
+      "source": ".agents/skills/audit-project-docs/agents/openai.yaml",
+      "target": ".agents/skills/audit-project-docs/agents/openai.yaml",
+      "mode": "managed",
+      "sha256": "256d33db1306cc6dff4242f39e748c8cccee3f317e9a22f3460f039caeb16ab0"
+    },
+    {
+      "source": "templates/1_architecture.md",
+      "target": "docs-ai/current/1_architecture.md",
+      "mode": "seed",
+      "sha256": "9927d18e3406f0fe49a9c22eda5c6e98f8262a03e1e784025877040f385a5159"
+    },
+    {
+      "source": "templates/1_dependency.md",
+      "target": "docs-ai/current/1_dependency.md",
+      "mode": "seed",
+      "sha256": "93290def743a1cde0608588d7d71aeecae55f877e7dd4bb7ee29ab6e4ceddd4f"
+    },
+    {
+      "source": "templates/empty.gitkeep",
+      "target": "docs/.gitkeep",
+      "mode": "seed",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "templates/empty.gitkeep",
+      "target": "docs-ai/current/1_changelogs/.gitkeep",
+      "mode": "seed",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "templates/empty.gitkeep",
+      "target": "docs-ai/current/1_bugreports/.gitkeep",
+      "mode": "seed",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "templates/empty.gitkeep",
+      "target": "docs-ai/current/1_archived/.gitkeep",
+      "mode": "seed",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "origin.bat",
+      "target": "origin.bat",
+      "mode": "managed",
+      "sha256": "399e2eb561ace168b21d6bbbdb8565978b9057dd322279a6aeaf37a112c51d83"
+    },
+    {
+      "source": "local.bat",
+      "target": "local.bat",
+      "mode": "managed",
+      "sha256": "1346cc4ef7f05d762447b2e978ec25c9bdd2d03de0948cc0e1b98c0664ddf128"
+    },
+    {
+      "source": "scripts/origin.ps1",
+      "target": "scripts/origin.ps1",
+      "mode": "managed",
+      "sha256": "7d736e427bc3f304cc2e9c7351deb9117b5a2edfaf5debcecd5ffa9198893ae6"
+    },
+    {
+      "source": "scripts/local.ps1",
+      "target": "scripts/local.ps1",
+      "mode": "managed",
+      "sha256": "ea85a8b41d27ec741dffa036010869db25891168e58dba7ab242f33f83598c77"
+    },
+    {
+      "source": "scripts/saf-core.ps1",
+      "target": "scripts/saf-core.ps1",
+      "mode": "managed",
+      "sha256": "d457dff7e4412cda8510c021dcf64d40704bea2ab9c52b5ce0479e069c40c98f"
+    },
+    {
+      "source": ".agents/skills/sync-saf/SKILL.md",
+      "target": ".agents/skills/sync-saf/SKILL.md",
+      "mode": "managed",
+      "sha256": "58f98d979b6811c873d59f9557bc5938311642e783478c2a2c964dd24c5a477c"
+    },
+    {
+      "source": ".agents/skills/sync-saf/agents/openai.yaml",
+      "target": ".agents/skills/sync-saf/agents/openai.yaml",
+      "mode": "managed",
+      "sha256": "9eef4ccbb994eb8eb6a70cafa52e2bf1852d37c8b9d74b1052e84fa17b7af560"
+    },
+    {
+      "source": ".agents/skills/compress-saf/SKILL.md",
+      "target": ".agents/skills/compress-saf/SKILL.md",
+      "mode": "managed",
+      "sha256": "789359d3dad5aa8427cb80583114cea46382594dc397a33b57043c547dba1346"
+    },
+    {
+      "source": ".agents/skills/compress-saf/agents/openai.yaml",
+      "target": ".agents/skills/compress-saf/agents/openai.yaml",
+      "mode": "managed",
+      "sha256": "a55afde8773ce9c9b05ca0727eb990d789de0b8c7d20099acf626223cb3acfb5"
+    }
+  ]
+}

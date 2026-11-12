@@ -1,8 +1,8 @@
-# Framework architecture and repository tree
+# SAF architecture and repository tree
 
 ## Inventory scope
 
-The tree includes every maintained file in this central source repository outside the two documentation subtrees. Exclusions: `docs/**` and `docs-ai/**` (documentation), `.git/**` (Git internals), `.agents/backups/**` (consumer recovery copies), and `*.tmp` (atomic-write intermediates). No generated build outputs, caches, application binaries, or external runtime distributions belong to this repository.
+This is the SAF 2.0.0 central source inventory. The tree includes every maintained source/configuration file outside documentation. Exclusions: `docs/**` and `docs-ai/**` (documentation), `.git/**` (Git internals), `.agent/backup/**` (recovery copies), `.agent/saf_log/**` (operational logs), `.agent/operation.lock` (runtime lease), legacy `.agents/backups/**` (recovery copies), and `*.tmp` (atomic-write intermediates). No application binaries, build outputs, caches, or external runtime distributions are maintained here.
 
 ## Complete repository tree
 
@@ -13,7 +13,11 @@ The tree includes every maintained file in this central source repository outsid
         - `agents/`
           - `openai.yaml`
         - `SKILL.md`
-      - `sync-agents-framework/`
+      - `compress-saf/`
+        - `agents/`
+          - `openai.yaml`
+        - `SKILL.md`
+      - `sync-saf/`
         - `agents/`
           - `openai.yaml`
         - `SKILL.md`
@@ -21,76 +25,75 @@ The tree includes every maintained file in this central source repository outsid
     - `workflows/`
       - `verify.yml`
   - `scripts/`
-    - `fetch-agents.ps1`
-    - `publish-framework.ps1`
+    - `local.ps1`
+    - `origin.ps1`
+    - `publish-saf.ps1`
+    - `saf-core.ps1`
   - `templates/`
     - `1_architecture.md`
     - `1_dependency.md`
-    - `AGENTS.ensure.json`
     - `empty.gitkeep`
   - `tests/`
-    - `test-sync.ps1`
+    - `test-saf.ps1`
   - `.gitattributes`
   - `.gitignore`
-  - `AGENTS.ensure.json`
-  - `AGENTS.framework.json`
   - `AGENTS.md`
   - `LICENSE`
   - `README.md`
   - `README_zh-CN.md`
-  - `debug-handler.bat`
-  - `fetch-agents.bat`
+  - `SAF.json`
+  - `SAF.lock.json`
+  - `debug.bat`
+  - `init.ps1`
+  - `local.bat`
+  - `origin.bat`
 
 ## Responsibilities and dependency direction
 
 | Location | Responsibility |
 | --- | --- |
-| `AGENTS.md` | Routes task reading, audit, and synchronization; does not replace the runtime's instruction hierarchy |
-| `AGENTS.framework.json` | Versioned payload source/target/mode/digest inventory; excludes its own digest |
-| `AGENTS.ensure.json` | Audit state for this central source; never imported as consumer completion evidence |
-| `.agents/skills/` | Audit and explicit synchronization workflows, with optional Codex UI metadata |
-| `scripts/fetch-agents.ps1` | Resolves one payload commit, validates the snapshot, preserves the verified central launcher, supports installer handoff, protects project facts/customizations, and writes payload then lock with best-effort rollback |
-| `fetch-agents.bat` | Windows single entry point; obtains and verifies the central controller on every invocation, supplies a default or explicit target root, forwards arguments, and cleans up while propagating exit codes |
-| `debug-handler.bat` | Interactive project-owned operation menu seed; dispatches to configured `.bat`/`.ps1` scripts, but no project operations are implemented in this source repository |
-| `scripts/` | Framework installer/publisher implementations and the required location for project operation scripts |
-| `scripts/publish-framework.ps1` | Maintainer-only manifest digest generation and strictly increasing release version preparation |
-| `templates/` | Unverified consumer architecture/dependency templates, unaudited state, and empty directory marker |
-| `tests/test-sync.ps1` | Package-free temporary Git fixtures, real historical-installer migration, source-installer handoff, and preservation/conflict/regression assertions |
-| `.github/workflows/verify.yml` | Windows PowerShell 5.1 / Windows PowerShell 7 / Linux PowerShell 7 verification matrix; checks out Git history for historical-installer fixtures |
-| `.gitattributes` | Text checkout normalization; BAT checkout uses CRLF |
-| `.gitignore` | Recovery and atomic-write intermediate exclusions |
-| `README.md` and `README_zh-CN.md` | English and Simplified Chinese installation, synchronization, script layout, and ownership guidance |
-| `LICENSE` | MIT license for the framework source |
-| `docs-ai/common/` (tree-excluded) | Centrally managed current standards; procedural skills reference them |
-| `docs-ai/current/` (tree-excluded) | Facts and records for the central source, separate from consumer templates |
-| `docs/` (tree-excluded) | Human documentation area; empty marker only |
+| `AGENTS.md` | Routes task reading, the audit gate, and applicable skills |
+| `SAF.json` | Stable release version, handler contract, and normalized source/target/mode/hash inventory |
+| `SAF.lock.json` | Locally merged bootstrap, installation, and audit state; source installation/bootstrap may be null |
+| `init.ps1` | Source-only trusted bootstrap/recovery; captures caller/explicit Git root, validates one commit, deploys the full handler set and runtime-ignore rules, and records bootstrap provenance without completing payload sync/audit |
+| `origin.bat` | Windows wrapper; no arguments default to sync and retain result visibility; explicit actions do not wait |
+| `scripts/origin.ps1` | Uses one validated release snapshot to check/update/sync, detects ownership conflicts, protects seeds, handles legacy conversion/retirement, and writes coordinated installation state |
+| `local.bat` | Windows local-maintenance wrapper |
+| `scripts/local.ps1` | Offline scoped backup, verified archive ZIP export/cleanup, ignore rules, and a no-argument menu defaulting to Backup |
+| `scripts/saf-core.ps1` | Shared Git/blob acquisition, hashing/path validation, state merge, operation lease, transaction/recovery, scoped backups, and command logging |
+| `debug.bat` | Project-owned seeded menu/dispatcher; optional debug, data-reset, tag-publication, and package-publication slots |
+| `.agents/skills/` | Sync workflow, documentation audit, and semantic AI-memory compression; skills are Agent instructions, not a model engine |
+| `scripts/publish-saf.ps1` | Source-only release manifest validation/hash preparation and strictly increasing version preparation |
+| `templates/` | Explicitly incomplete consumer architecture/dependency documents and empty directory marker; no lock template is imported |
+| `tests/test-saf.ps1` | Explicitly invoked disposable-Git-fixture integration checks; no package framework, live network source, or global Git changes required by the suite |
+| `.github/workflows/verify.yml` | Default manifest/PowerShell parse checks; optional manually dispatched integration job, on Windows PowerShell 5.1 and Windows/Linux PowerShell 7 |
+| `.gitattributes` | Text normalization; BAT checkout uses CRLF |
+| `.gitignore` | Local recovery/log/operation-lock and temporary-file exclusions |
+| README pair and `LICENSE` | English/Chinese usage and MIT source license |
+| `docs-ai/common/` (tree-excluded) | Effective portable shared standards; no mandatory organization namespace, UI library, or package ecosystem |
+| `docs-ai/current/` (tree-excluded) | Source project facts/history, separate from consumer templates |
+| `docs/` (tree-excluded) | Human documentation area |
 
-There are no solution/project files, application assemblies, shared runtime libraries, microservices, web UI components, or deployment units. `fetch-agents.bat` launches framework synchronization. Consumer project operations enter through the interactive `debug-handler.bat` menu, which dispatches to `scripts/debug`, `clear-database`, `publish-tag`, or `publish-nuget` (`.bat` first, then `.ps1`). Missing implementations report an unconfigured operation; the framework contains none of those project commands. The publisher and tests are central maintenance tools; the synchronization launcher, installer, instructions, operation menu seed, and manifest-listed templates are imported by consumers.
+There are no application projects, assemblies, shared runtime libraries, databases, microservices, hosted UI, or deployed application units. SAF does not implement model inference, Agent scheduling, or tool registration. Skills execute in the caller's existing Agent session. Project operations are unconfigured examples until a consumer supplies implementations under `scripts/`.
 
-## Runtime and persistence boundaries
+## Runtime and state boundaries
 
-Every synchronization or check clones the central `main` branch into a temporary directory after any required input. Before executing the controller, the BAT requires the stable `launcherProtocolVersion: 1` invocation contract, checks both executable entries against that checkout's manifest, and rejects non-regular Git blobs or hash mismatches. This launcher contract is independent of the evolving payload installer protocol. It never executes or falls back to the project's installed PS1. Central availability is required even with a local payload source. The finishing block is parsed before synchronization can replace the executing BAT. Temporary cleanup validates the absolute path and expected name against the same `TEMP` base used for creation before using native PowerShell removal.
+Bootstrap is the independent recovery path, not a permanent application installation. Its five deployed handlers are `origin.bat`, `local.bat`, `scripts/origin.ps1`, `scripts/local.ps1`, and `scripts/saf-core.ps1`. It validates the complete set from one commit before writes, backs up replaced handlers, adds runtime ignore rules, and merges bootstrap metadata while preserving installation/audit evidence. Full payload synchronization is a subsequent origin operation. The actual central source remains `Evigila/AGENTS.md`; a future renamed endpoint is not an implementation dependency.
 
-Before acquisition, normal invocation displays Update/Check/Force/Exit or confirms explicit options. Console input is read without evaluating it as shell code; an empty Enter selects Update, while invalid input repeats and EOF cancels. Success, failure and cancellation wait again before exit, preserving the operation code. First-argument `-NonInteractive` opts out of both waits for automation. The debug menu follows the same input/default/exit contract and isolates child BAT execution from its own shell. The installer accepts the automation switch for argument forwarding; interaction remains owned by BAT.
+Daily origin runs the installed local PowerShell code. Remote content is read as a manifest and regular Git blobs from a single resolved commit; it does not execute a separately acquired moving remote controller. Check reports release/compatibility/conflicts without modifying framework files, manifest, or lock, with a local log-only write exception. Sync checks and updates when available using that same snapshot. Update applies a validated plan; only `-update -force` authorizes replacement of conflicting managed content, with recovery copies. Incompatible schema/handlers require init refresh, not historical installer handoff.
 
-The BAT sets a process-local default target root to its directory; an explicit `-ProjectRoot` overrides it without duplicate arguments. This permits a current BAT to migrate an old project launcher through normal synchronization. The controller either fetches the selected framework repository/ref into a temporary bare repository or reads a supplied local clone. It resolves one payload commit and reads regular Git blobs from that commit. No target checkout, remote mutation, Git staging, branch change, or commit occurs.
+Paths are constrained to the repository and reject traversal, unsafe Windows names, linked paths, and invalid source blobs. Text hashes normalize CRLF and an initial UTF-8 BOM. Seed documents and nonempty project debug customizations remain protected, user-added skills are preserved, and Git origin/index/branch/commits are not modified. Legacy conversion preserves genuine old audit/installation evidence; differing old/new project state conflicts rather than silently selecting a winner.
 
-Manifest installer protocol `2` enables source-snapshot handoff while retaining the central launcher context. The running controller verifies the target installer's regular Git blob and normalized hash, writes it into a temporary `scripts/` directory when different, and runs it with the same PowerShell edition. The child uses an internal `ResolvedCommit` parameter with the existing source repository to avoid resolving a moving ref again; the original payload repository/ref still enters the lock. The central cache remains available until the child finishes. Exit codes are propagated and bounded temporary caches are cleaned up. BAT-driven synchronization interprets protocol-less and protocol `1` historical payloads directly, since their scripts do not preserve the independent launcher. Direct PowerShell execution retains protocol `1` and `2` handoff support.
+The lock has schema version 1 with independent `bootstrap`, `installation`, and `audit` sections. Writes share repository-local operation coordination and atomic file/transaction helpers. Audit calls `Set-SafState -Root <root> -Section audit -Value <object>`; it cannot replace other sections. Version comparison invalidates an old audit naturally, and neither update nor compression fabricates completion. Operations retain best-effort recovery; arbitrary external concurrent edits, abrupt process/power loss, and permanent external backup retention are not guaranteed by source inspection.
 
-The target manifest's BAT is still validated, but BAT-driven synchronization installs the current central launcher instead. Thus payload rollback can restore the actual historical PS1 without removing the entry point's ability to update again. Optional lock `launcher` metadata records the central repository/ref/commit/hash, and `managedFiles['fetch-agents.bat']` records the actual installed launcher baseline. A current no-op does not rewrite the lock merely to add provenance. Previously deployed BATs without central acquisition need one migration via a current BAT; remote changes cannot alter their existing execution path.
+## Local maintenance and memory
 
-The installation manifest defines managed files and seed-only project files. `debug-handler.bat` is a seed, never a managed file; missing or legacy zero-byte entry points receive the menu, while nonempty customization survives initialization, updates, and `-Force`. The generated consumer `AGENTS.lock.json` records the imported commit, source/ref, version, manifest digest, and owned-file hashes. Normalized text hashes protect both uncommitted and committed local modifications. Project-added files have no ownership entry and remain untouched. Managed files retired by a release can be removed only through the old lock's ownership baseline.
+Manual snapshots live under `.agent/backup/` and contain scoped handlers/state, `.gitignore`, AI documents, and skills with exact-byte inventories/hashes. This is SAF recovery, not a full source or human-document backup. Logs live under `.agent/saf_log/`; local operation leases use `.agent/operation.lock`. These areas are distinct from `.agents/skills/` discovery.
 
-Filesystem changes are prevalidated and planned in memory. Existing conflicting managed files require an explicit `-Force` and are backed up separately. Seeds are initialized only when absent, except that a legacy zero-byte `debug-handler.bat` receives the interactive seed. The lock is written last; failures trigger best-effort restoration of planned paths. Interrupted power loss and concurrent writes are outside the transaction guarantee.
+Archive cleanup resolves Downloads from the current user's Windows User Shell Folders Downloads GUID, supporting redirection; an explicit output destination is also accepted by the script. It exports hidden scoped content through built-in .NET ZIP support, verifies entry/content hashes, and deletes only unchanged exported files, preserving directory markers and changed/new source. Archive-ignore adds child rules with a `.gitkeep` exception and does not change the index. Already tracked content remains tracked; cleanup of tracked content creates local deletion differences for possible later user commits.
 
-## Active constraints
+Audit and semantic compression are skills only, with no `local.bat -audit` or `-compress` actions and no engine adapter. Compression snapshots recovery data, consolidates active memory, and archives superseded reports while preserving required complete inventories, effective facts, constraints, evidence, unfinished work, changelog immutability, and bug history.
 
-This repository has native console interaction using existing PowerShell/.NET input APIs and no Flourish component host. The shared UI integration rules introduce no Flourish dependency. Namespace/project-name rules apply to actual language/project identities and do not require renaming script functions. User-authorized framework maintenance includes the root README, scripts, templates, tests, and CI in addition to the AI documentation area.
+## Verification and current limits
 
-The central source does not require a consumer `AGENTS.lock.json`. Its verified `current/` documents are never synchronized into another project. The seed templates explicitly remain incomplete until that project's own audit succeeds.
-
-AI-created root scripts are limited to exactly `debug-handler.bat` and `fetch-agents.bat`; operation implementations belong under `scripts/`. This source repository supplies only an interactive dispatcher, without startup, database clearing, tag publication, or package publication implementations.
-
-## Verification scope
-
-The listed maintained paths and script responsibilities are based on source inspection. Integration results and platform limitations belong in the release change record; structure inspection alone does not establish runtime compatibility. Update this tree whenever maintained paths change.
+This inventory is based on the maintained SAF 2.0.0 implementation and configuration. Default CI performs manifest validation and PowerShell parsing; optional functional fixtures and interactive/manual acceptance are separate. The subsequent user-authorized Windows PowerShell 5.1 run passed 34 integration checks, including local fixture bootstrap/synchronization, rollback, archive export to a disposable destination, and BAT fallback without PowerShell 7. See the [5.1 verification record](1_changelogs/2026-11-12_115748_powershell-51-verification.md) for results and the long-path limitation. Live network bootstrap, actual Downloads redirection, interactive menus, full debug operations, semantic compression, and runtime checks on other platforms remain unverified. The earlier [implementation record](1_changelogs/2026-11-12_113446_saf-2-upgrade.md) retains its original static-only delivery evidence.

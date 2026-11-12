@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "bootstrap": null,
+  "installation": null,
+  "audit": {
+    "auditedFrameworkVersion": "2.0.0",
+    "lastMissingMaterialAskedAtUtc": null,
+    "lastCompletedAtUtc": "2026-11-12T14:47:10Z"
+  }
+}

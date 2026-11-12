@@ -6,7 +6,7 @@
 
 Include the repository root and every maintained directory and file below it, including source, solution and project files, root instructions, configuration, deployment definitions, tests, and checked-in assets.
 
-Exclude the entire `docs/` and `docs-ai/` subtrees, version-control internals, temporary files, build outputs, caches, and generated intermediates. Replace the table below with the concrete paths or patterns present in the repository. Do not exclude maintained files solely because an ignore pattern matches them.
+Exclude the entire `docs/` and `docs-ai/` subtrees, version-control internals, temporary files, `.agent/backup/`, `.agent/saf_log/`, build outputs, caches, and generated intermediates. Replace the table below with the concrete paths or patterns present in the repository. Do not exclude maintained files solely because an ignore pattern matches them.
 
 | Excluded path or pattern | Reason |
 | --- | --- |
@@ -21,14 +21,14 @@ Replace the placeholder below with a complete hierarchical tree rooted at the re
 
 ## Root files and module responsibilities
 
-Populate from inspected files. Describe the purpose of each important root file and each maintained root directory, then explain the responsibilities of significant modules below them. Include `scripts/`, the framework launcher `fetch-agents.bat`, and the project-owned operation entry point `debug-handler.bat`. Inspect the entry point and dispatched scripts before describing implemented operations; the initial menu does not itself implement project debugging, database clearing, tag publication, or package publication.
+Populate from inspected files. Describe the purpose of each important root file and each maintained root directory, then explain the responsibilities of significant modules below them. Include `scripts/`, the SAF handlers `origin.bat` and `local.bat`, their local PowerShell implementations and `saf-core.ps1`, `SAF.json`/`SAF.lock.json`, and the project-owned operation entry point `debug.bat`. Distinguish source-only `init.ps1` from consumer payload. Inspect the entry point and dispatched scripts before describing implemented operations; the initial menu does not itself implement project debugging, database clearing, tag publication, or package publication.
 
 | Repository-relative path | Responsibility | Evidence |
 | --- | --- | --- |
 
 ## Solution and project boundaries
 
-List actual solution files and projects. Distinguish executable applications, shared libraries, tests, examples or Gallery projects, and infrastructure definitions. Describe project references and relevant dependency direction without inferring a runtime boundary from a project boundary.
+List actual solution files and projects. Distinguish executable applications, shared libraries, tests, examples or demonstration projects, and infrastructure definitions. Describe project references and relevant dependency direction without inferring a runtime boundary from a project boundary.
 
 | Solution or project path | Kind | Responsibility | References and boundaries |
 | --- | --- | --- | --- |

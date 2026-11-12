@@ -1,111 +1,90 @@
-# AGENTS.md
+# SAF 2.0.0
 
 [English](https://github.com/Evigila/AGENTS.md/blob/main/README.md) | [简体中文](https://github.com/Evigila/AGENTS.md/blob/main/README_zh-CN.md)
 
-An AGENTS.md framework for Git repositories.
+SAF distributes lightweight instructions, Agent skills, project memory, and repository-local Windows handlers into existing Git repositories. It installs no application, global CLI, service, package manager, or runtime, and imposes no product namespace or UI library.
 
-## Quick Installation
+## Initialize and recover
 
-Requirements:
+Requirements: an existing Git repository, Git on PATH, and Windows PowerShell 5.1 or already installed PowerShell 7. The BAT interfaces require Windows. Work from the target Git root.
 
-- The target repository MUST already be initialized with Git
-- Git for Windows
-- Windows PowerShell 5.1 or PowerShell 7
+After this release's init script is published to the configured repository's main:
 
-For a first installation, use the following command to download `fetch-agents.bat`. 
-
-```bat
-cmd /c "curl.exe -fL https://raw.githubusercontent.com/Evigila/AGENTS.md/main/fetch-agents.bat -o fetch-agents.bat && call fetch-agents.bat"
+```powershell
+irm https://raw.githubusercontent.com/Evigila/AGENTS.md/main/init.ps1 | iex
+.\origin.bat -sync
 ```
 
-After downloading the batch file, **double-click it to run**, or use the following command to check its status:
+The repository remains Evigila/AGENTS.md. A future Evigila/SAF endpoint is not assumed to exist, and the remote command requires publication. Before publication, use a trusted source checkout:
 
-```bat
-fetch-agents.bat -Check
+```powershell
+& C:\path\to\source\init.ps1 -ProjectRoot C:\path\to\target
 ```
 
-## What will be Installed
+Init captures the caller's directory, resolves one commit, and deploys both BAT handlers plus scripts/origin.ps1, scripts/local.ps1, and scripts/saf-core.ps1. It backs up replaced handlers, adds local runtime ignore rules to existing .gitignore, and preserves project facts and installation/audit evidence. Run origin afterward for full payload synchronization. Rerun trusted init for broken/incompatible handlers; do not delete the lock.
 
-| Path (relative to the root) | Purpose |
+Init accepts -ProjectRoot, -Repository, and -Ref. For explicit downloaded-script parameters:
+
+```powershell
+$initUrl = 'https://raw.githubusercontent.com/Evigila/AGENTS.md/main/init.ps1'
+& ([scriptblock]::Create((irm $initUrl))) -Repository 'https://github.com/Evigila/AGENTS.md.git' -Ref main
+```
+
+Review/trust bootstrap code before execution. A published commit-pinned URL improves reproducibility; payload hashes do not independently authenticate already-executed bootstrap code.
+
+## Files and commands
+
+| Path | Responsibility |
 | --- | --- |
-| `AGENTS.md` | Entry point |
-| `docs-ai/common/` | Shared standards |
-| `.agents/skills/audit-project-docs/` | Skill for auditing project documentation |
-| `.agents/skills/sync-agents-framework/` | Skill for synchronizing the AGENTS.md framework |
-| `AGENTS.framework.json` | Framework manifest and version control |
-| `AGENTS.lock.json` | Tracking file |
-| `AGENTS.ensure.json` | Documentation audit results |
-| `docs-ai/current/` | AI-maintained project facts and records. Agents do **NOT** have permission to modify human documentation under `docs/` unless you explicitly grant it. |
-| `docs-ai/current/1_changelogs/` | Change history for the current project |
-| `docs-ai/current/1_bugreports/` | Previously encountered issues and their fixes |
-| `docs-ai/current/1_archived/` | Archived and obsolete |
-| `docs/` | You should maintain manually **HUMAN** |
-| `fetch-agents.bat`, `scripts/fetch-agents.ps1` | Quick launcher for checking and synchronizing |
-| `scripts/` | AI-created scripts is under `here`, only `debug-handler.bat` and `fetch-agents.bat` are allowed at the root. |
-| `debug-handler.bat` | Project operation menu; dispatches to configured scripts under `scripts/` |
-| `templates/`, publisher, tests, CI, README | Will **NOT** copied into your repository |
+| AGENTS.md and docs-ai/common/ | Reading routes and effective standards |
+| .agents/skills/ | sync-saf, audit-project-docs, compress-saf; user skills coexist |
+| SAF.json | Release version, handler compatibility, payload hashes |
+| SAF.lock.json | Separate bootstrap, installation, and audit state |
+| origin.bat and scripts/origin.ps1 | Remote checking and synchronization |
+| local.bat and scripts/local.ps1 | Offline mechanical maintenance |
+| scripts/saf-core.ps1 | Shared paths, hashes, state merge, and operation locks |
+| debug.bat | Seeded project-owned operation dispatcher |
+| docs-ai/current/ | Project facts, changes, bug evidence, and archives |
+| docs/ | Human documentation; AI edits require explicit authorization |
+| .agent/backup/ and .agent/saf_log/ | Ignored local recovery snapshots and logs |
 
-## Commands
+Track framework files and state in Git. Source README, init, publisher, tests, CI, and templates directory are not consumer payload. New fact templates remain incomplete until project audit.
 
-Double-clicking `fetch-agents.bat` opens `1 Update`, `2 Check`, `3 Force`, and `0 Exit`. No operation starts until input is received. Pressing Enter chooses Update. Invalid input repeats the prompt. Explicit command-line options also require Enter confirmation. After success, failure, or cancellation, press Enter again to close the window.
+| Command | Result |
+| --- | --- |
+| origin.bat -check | Check release, compatibility, and local conflicts |
+| origin.bat -update | Apply selected release or report current |
+| origin.bat -sync | Check, then update when available, from one commit |
+| origin.bat -update -force | Back up and replace conflicting managed files |
+| origin.bat -Repository "Git URL" -Ref "branch/tag/commit" -sync | Select compatible source/ref |
 
-For unattended use, place `-NonInteractive` first, for example `fetch-agents.bat -NonInteractive -Check`. This skips both waits while retaining validation, backups, and operation exit codes.
+No arguments/double-click selects sync and waits after completion. Explicit actions have no confirmation or final wait. Reject conflicting actions and isolated Force; Force modifies Update only. Seeds, project facts/customizations, user skills, path/payload checks, and target Git origin/index/branch/commits remain protected.
 
-`debug-handler.bat` follows the same interaction rules, with `1 Debug`, `2 Clear database`, `3 Publish tag`, `4 Publish NuGet`, and `0 Exit`. Enter chooses Debug. It dispatches to `scripts/debug`, `clear-database`, `publish-tag`, or `publish-nuget`, preferring `.bat` then `.ps1`. The framework supplies the menu only; an operation without a project implementation reports that it is not configured. Automation may use `debug-handler.bat -NonInteractive 1` (or another listed number).
+Check changes no framework files, manifest, or lock; its only local write exception is .agent/saf_log logging. Daily origin runs deployed local code and reads verified release data, without executing another moving remote controller. Exit codes: 0 success/current, 1 error, 2 update available from Check, 3 conflict, 4 bootstrap refresh required.
 
-- Check for updates:
+## Local maintenance and skills
 
-```
-.\fetch-agents.bat -Check
-```
+No-argument local shows a menu, default Backup. Enter selects Backup; invalid input repeats, EOF cancels, and results remain visible until final input. Explicit actions have no waits.
 
-- Install, update, or do nothing if already up to date (can also be run by **double-clicking**):
+- local.bat -backup: scoped SAF recovery under .agent/backup/<UTC-time>-<unique-id>/ with exact framework/state/AI-document/skill bytes, inventory and hashes; excludes old backups, logs, Git internals, caches, and unrelated source. This is not a full repository backup.
+- local.bat -clean-arquived: ZIP docs-ai/current/1_archived into the user's real Windows Downloads folder, verify all entries/content including hidden files, then delete only unchanged exported files. Preserve the directory/marker; report partial cleanup. Failed export/verification preserves source.
+- local.bat -no-arquived: append archive-child ignore rules preserving .gitkeep and existing content, without index changes, commit, push, or remote deletion.
 
-```
-.\fetch-agents.bat
-```
+The requested arquived spelling is retained. Already tracked archives remain tracked. Cleaning tracked archives creates Git deletion differences; later user commits may remove them remotely. Downloads is read from the Windows User Shell Folders Downloads GUID, including redirection.
 
-- Force replacement with the remote version (creates backups under `.agents/backups/`):
+Append logs under .agent/saf_log/<UTC-date>.jsonl with action/results/recovery references, without secrets or whole-file contents. Logs do not replace project history.
 
-```
-.\fetch-agents.bat -Force
-```
+Use $sync-saf, $audit-project-docs, or $compress-saf in an Agent session; engines without discovery can read SKILL.md. Audit/compression are skills only: no local -audit/-compress commands or model adapter. Audit merges only its section through the shared state helper. Compression snapshots recovery data, preserves complete inventories/effective constraints/unfinished work, and archives superseded active reports without rewriting changelogs or bug evidence. Neither bootstrap/update nor compression completes an audit.
 
-- Use the remote `main` branch:
+The debug seed provides optional Debug, Clear database, Publish tag, and Publish package slots. Configure implementations under scripts/; no ecosystem is mandatory. Nonempty customization survives update/Force. Explicit selection such as debug.bat 1 skips waits.
 
-```
-.\fetch-agents.bat -Ref main
-```
+## Migration and verification
 
-- Use a specific version:
+Preserve legacy installation/audit evidence during lock conversion; conflicting existing state is not guessed away. Preserve debug customization or report conflicts. SAF 2 does not promise pre-SAF installer rollback; recover through trusted init.
 
-```
-.\fetch-agents.bat -Ref "Commit SHA or existing tag"
-```
-
-- Roll back to an older version:
-
-```
-.\fetch-agents.bat -Ref "Older commit SHA" -Force
-```
-
-- Use another compatible remote repository (the remote repository is remembered unless you override it later):
-
-```
-.\fetch-agents.bat -Repository "Git repository URL" -Ref main
-```
-
-## Exclusions
-
-Project-specific documentation under `current/` and `AGENTS.ensure.json` are seeded only when missing. The project-owned `debug-handler.bat` menu is seeded when missing or still zero bytes from legacy initialization. Nonempty custom entry points are preserved, including with `-Force`. The `-Force` option replaces conflicting managed framework files and creates backups under `.agents/backups/`.
-
-If you are confident with `-Force` replacement, you can delete the backups. It is **recommended** to make a Git commit first so you retain a copy in Git history in case you need it later.
-
-## AI assistance
-
-> [!IMPORTANT]
-> This library was developed with assistance from AI Agent (ChatGPT Codex).
+Static checks do not prove functional behavior. Recommended manual checks: bootstrap/recovery; check/update/sync/conflict/Force; audit preservation; offline backup; redirected Downloads/export failures; tracked-archive ignore behavior; audit/compression content and state preservation. Do not use Computer Use for project testing.
 
 ## License
 
-Licensed under the [MIT License](https://github.com/Evigila/AGENTS.md/blob/main/LICENSE).
+[MIT License](https://github.com/Evigila/AGENTS.md/blob/main/LICENSE). Developed with AI Agent assistance.
+
