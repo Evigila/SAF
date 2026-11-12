@@ -6,7 +6,7 @@ Use the affected repository's architecture, language conventions, formatter/comp
 
 Keep responsibilities clear and changes within the task. Prefer existing abstractions and direct implementations. Introduce an abstraction, pattern, or broad refactoring only for a concrete requirement.
 
-Name types, members, and files by their responsibilities. Follow the project's naming and namespace conventions; SAF imposes no organization prefix, product name, language, package ecosystem, or framework dependency.
+Name types, members, and files by their responsibilities. Follow the project's naming and namespace conventions; SAF imposes no organization prefix, product name, language, package ecosystem, or runtime dependency. Apply configured protected paths and the fixed testing/commit requirements under [rules.md](rules.md). Configured commit styles affect authorized new commit messages, not public identifiers, task scope, or existing history.
 
 Comments explain intent, constraints, and non-obvious behavior. Keep them accurate. Task history, approval narratives, and change ledgers belong in project records, not source comments.
 

@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       integration:
-        description: Run the disposable-repository integration suite
+        description: Run configuration, migration, and synchronization integration checks
         type: boolean
         default: false
 
@@ -42,7 +42,7 @@ jobs:
       - name: Parse maintained PowerShell scripts
         run: |
           $failures = @()
-          foreach ($file in @(Get-Item ./init.ps1) + @(Get-ChildItem ./scripts,./tests -Filter *.ps1 -File)) {
+          foreach ($file in @(Get-ChildItem ./scripts,./tests -Filter *.ps1 -File)) {
             $tokens = $null
             $parseErrors = $null
             [void][Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$parseErrors)

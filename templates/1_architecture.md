@@ -1,49 +1,40 @@
-# Project architecture and repository tree
+# Project architecture and key relationships
 
-**Status:** Template awaiting repository inspection. No project structure or runtime architecture has been verified. Complete this file from actual repository evidence before marking the documentation audit complete.
+**Status:** Project facts have not been inspected. Populate this document when a project architecture task is requested or when actual structural changes require an update. Completing project architecture facts is a separate task, not a prerequisite for a SAF framework structure audit.
 
-## Inventory scope
+## Scope and maintenance
 
-Include the repository root and every maintained directory and file below it, including source, solution and project files, root instructions, configuration, deployment definitions, tests, and checked-in assets.
+Describe key files, directories, projects, responsibilities, and dependency direction. Use relationship tables and concise explanations; an exhaustive file tree is not required. Focus on the maintained modules and boundaries needed to understand the project.
 
-Exclude the entire `docs/` and `docs-ai/` subtrees, version-control internals, temporary files, `.agent/backup/`, `.agent/saf_log/`, build outputs, caches, and generated intermediates. Replace the table below with the concrete paths or patterns present in the repository. Do not exclude maintained files solely because an ignore pattern matches them.
+Maintain this document alongside real changes to key modules, entry points, project references, responsibilities, or runtime boundaries. Record facts from affected implementation and configuration when that work is in scope; do not inspect all project source or dependency facts merely because the periodic SAF structure audit is due.
 
-| Excluded path or pattern | Reason |
-| --- | --- |
-| `docs/` | Human documentation subtree |
-| `docs-ai/` | AI documentation subtree |
+Generated outputs, caches, temporary files, Git internals, and local SAF recovery/log data do not need individual entries. Describe documentation areas by their ownership when useful rather than listing their contents.
 
-## Complete repository tree
+## Key files and modules
 
-Replace the placeholder below with a complete hierarchical tree rooted at the repository directory. Show every included file; do not collapse maintained subtrees into ellipses or representative examples. An indented Markdown list or a fenced directory tree may be used.
+Describe important root files and directories, significant modules, and their relationships. For SAF integration, identify `AGENTS.md`, release-owned `SAF.json`, project-owned `SAF.config.json`, observed `SAF.lock.json`, the `origin.bat`/`local.bat` handlers and their scripts, and project-owned `debug.bat` when relevant. `Resolve-SafConfig -Root` supplies validated defaults/restrictions to handlers and Agent workflows; do not copy central project preferences into this project's facts. Skills remain `.agents/skills/`, distinct from runtime `.agents/backup/`, `.agents/saf_log/`, and `.agents/operation.lock`. The trusted `scripts/init.ps1` is a source-only bootstrap, not a required consumer file. A menu alone does not establish implemented project operations.
 
-- `<repository-root>/` — replace with the actual root name and all included descendants.
-
-## Root files and module responsibilities
-
-Populate from inspected files. Describe the purpose of each important root file and each maintained root directory, then explain the responsibilities of significant modules below them. Include `scripts/`, the SAF handlers `origin.bat` and `local.bat`, their local PowerShell implementations and `saf-core.ps1`, `SAF.json`/`SAF.lock.json`, and the project-owned operation entry point `debug.bat`. Distinguish source-only `init.ps1` from consumer payload. Inspect the entry point and dispatched scripts before describing implemented operations; the initial menu does not itself implement project debugging, database clearing, tag publication, or package publication.
-
-| Repository-relative path | Responsibility | Evidence |
-| --- | --- | --- |
+| Key path or module | Responsibility | Depends on / used by | Evidence or unresolved fact |
+| --- | --- | --- | --- |
 
 ## Solution and project boundaries
 
-List actual solution files and projects. Distinguish executable applications, shared libraries, tests, examples or demonstration projects, and infrastructure definitions. Describe project references and relevant dependency direction without inferring a runtime boundary from a project boundary.
+When project architecture work is in scope, identify actual solutions and significant executable, library, test, example, or infrastructure projects. Describe references and dependency direction. A project boundary alone does not establish an independently deployed service. State when no solution/project files exist.
 
-| Solution or project path | Kind | Responsibility | References and boundaries |
+| Solution or project | Kind and responsibility | References / dependency direction | Runtime boundary |
 | --- | --- | --- | --- |
 
 ## Runtime and resource boundaries
 
-Describe verified processes, entry points, deployment units, databases, and other external resources. Explain orchestration and communication only where established by source or configuration. If a boundary cannot be verified, mark it as unknown.
+For the affected architecture scope, describe processes, entry points, deployment units, persistence, and external resources established by implementation or configuration. Explain communication and ownership without duplicating the dependency inventory. Mark unverified facts as unknown rather than expanding a SAF structure audit into a business architecture investigation.
 
 | Application or resource | Runtime/deployment boundary | Communication or persistence | Evidence |
 | --- | --- | --- | --- |
 
 ## Active project constraints and exceptions
 
-Record current project-specific constraints and applicable authorized exceptions. Include their scope and a link to supporting evidence when available. Keep completed approval narratives and superseded decisions in the history directories.
+Record applicable project-specific constraints and authorized exceptions, with their scope and evidence. Keep completed approval narratives and superseded decisions in the history directories.
 
 ## Verification and unresolved facts
 
-Record the repository revision or inspection scope, evidence used, and any unresolved gaps. Keep this file marked incomplete while essential tree entries or architecture facts remain unverified.
+Record the project architecture inspection scope, evidence, and unresolved facts. Distinguish source inspection from executed verification. A SAF framework structure audit verifies framework structure and its required documents; it does not establish the accuracy or completeness of project source, business architecture, or dependency facts. This template may remain unpopulated until that separate project work is authorized.

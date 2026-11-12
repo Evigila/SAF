@@ -7,12 +7,12 @@ set "SAF_SHELL=powershell.exe"
 where pwsh.exe >nul 2>&1
 if not errorlevel 1 set "SAF_SHELL=pwsh.exe"
 if not exist "%~dp0scripts\saf-core.ps1" (
-    echo [SAF] Missing shared helper. Rerun the remote init.ps1 command.
+    echo [SAF] Missing shared helper. Rerun the trusted remote scripts/init.ps1 bootstrap.
     if "%SAF_PAUSE%"=="1" pause
     exit /b 4
 )
 if not exist "%~dp0scripts\origin.ps1" (
-    echo [SAF] Missing handler. Rerun the remote init.ps1 command.
+    echo [SAF] Missing handler. Rerun the trusted remote scripts/init.ps1 bootstrap.
     if "%SAF_PAUSE%"=="1" pause
     exit /b 4
 )

@@ -1,99 +1,81 @@
-# SAF architecture and repository tree
+# SAF architecture and key relationships
 
-## Inventory scope
+## Scope and maintenance
 
-This is the SAF 2.0.0 central source inventory. The tree includes every maintained source/configuration file outside documentation. Exclusions: `docs/**` and `docs-ai/**` (documentation), `.git/**` (Git internals), `.agent/backup/**` (recovery copies), `.agent/saf_log/**` (operational logs), `.agent/operation.lock` (runtime lease), legacy `.agents/backups/**` (recovery copies), and `*.tmp` (atomic-write intermediates). No application binaries, build outputs, caches, or external runtime distributions are maintained here.
+The formal SAF release target is 2.0.0, using project configuration schema 2, handler protocol 3, and config support version 2. It retains unified `.agents/` runtime storage and the recovery ownership, config-backup, root-object, and protected-ancestor fixes. The current configuration is limited to source selection, protected paths, Computer Use testing preference, UI guidance, and commit presentation. Required implementation tests and commit approval/history preservation are shared standards. Fresh 2.0.0 fixture runs passed on Windows PowerShell 5.1 and existing PowerShell 7, as recorded below; the earlier 3.0.0 preparation label was never published. The source-only bootstrap remains `scripts/init.ps1`. Maintain these facts when actual entry points, modules, references, or runtime boundaries change.
 
-## Complete repository tree
+Periodic SAF auditing concerns the framework's structure. It does not require inspecting a consumer project's source, business architecture, or dependency facts. Project architecture investigation and repair are separate tasks; this document records the framework source facts already established during its implementation.
 
-- `AGENTS.md/` (repository root)
-  - `.agents/`
-    - `skills/`
-      - `audit-project-docs/`
-        - `agents/`
-          - `openai.yaml`
-        - `SKILL.md`
-      - `compress-saf/`
-        - `agents/`
-          - `openai.yaml`
-        - `SKILL.md`
-      - `sync-saf/`
-        - `agents/`
-          - `openai.yaml`
-        - `SKILL.md`
-  - `.github/`
-    - `workflows/`
-      - `verify.yml`
-  - `scripts/`
-    - `local.ps1`
-    - `origin.ps1`
-    - `publish-saf.ps1`
-    - `saf-core.ps1`
-  - `templates/`
-    - `1_architecture.md`
-    - `1_dependency.md`
-    - `empty.gitkeep`
-  - `tests/`
-    - `test-saf.ps1`
-  - `.gitattributes`
-  - `.gitignore`
-  - `AGENTS.md`
-  - `LICENSE`
-  - `README.md`
-  - `README_zh-CN.md`
-  - `SAF.json`
-  - `SAF.lock.json`
-  - `debug.bat`
-  - `init.ps1`
-  - `local.bat`
-  - `origin.bat`
+Generated/operational content does not need individual inventory entries: Git internals, `.agents/backup/`, `.agents/saf_log/`, `.agents/operation.lock`, legacy `.agent/` runtime, earlier `.agents/backups/` recovery copies, temporary files, build outputs, and caches. Skill packages under `.agents/skills/` remain maintained content. Documentation areas are described by ownership below. No application binaries or external runtime distributions are maintained here.
 
 ## Responsibilities and dependency direction
 
-| Location | Responsibility |
-| --- | --- |
-| `AGENTS.md` | Routes task reading, the audit gate, and applicable skills |
-| `SAF.json` | Stable release version, handler contract, and normalized source/target/mode/hash inventory |
-| `SAF.lock.json` | Locally merged bootstrap, installation, and audit state; source installation/bootstrap may be null |
-| `init.ps1` | Source-only trusted bootstrap/recovery; captures caller/explicit Git root, validates one commit, deploys the full handler set and runtime-ignore rules, and records bootstrap provenance without completing payload sync/audit |
-| `origin.bat` | Windows wrapper; no arguments default to sync and retain result visibility; explicit actions do not wait |
-| `scripts/origin.ps1` | Uses one validated release snapshot to check/update/sync, detects ownership conflicts, protects seeds, handles legacy conversion/retirement, and writes coordinated installation state |
-| `local.bat` | Windows local-maintenance wrapper |
-| `scripts/local.ps1` | Offline scoped backup, verified archive ZIP export/cleanup, ignore rules, and a no-argument menu defaulting to Backup |
-| `scripts/saf-core.ps1` | Shared Git/blob acquisition, hashing/path validation, state merge, operation lease, transaction/recovery, scoped backups, and command logging |
-| `debug.bat` | Project-owned seeded menu/dispatcher; optional debug, data-reset, tag-publication, and package-publication slots |
-| `.agents/skills/` | Sync workflow, documentation audit, and semantic AI-memory compression; skills are Agent instructions, not a model engine |
-| `scripts/publish-saf.ps1` | Source-only release manifest validation/hash preparation and strictly increasing version preparation |
-| `templates/` | Explicitly incomplete consumer architecture/dependency documents and empty directory marker; no lock template is imported |
-| `tests/test-saf.ps1` | Explicitly invoked disposable-Git-fixture integration checks; no package framework, live network source, or global Git changes required by the suite |
-| `.github/workflows/verify.yml` | Default manifest/PowerShell parse checks; optional manually dispatched integration job, on Windows PowerShell 5.1 and Windows/Linux PowerShell 7 |
-| `.gitattributes` | Text normalization; BAT checkout uses CRLF |
-| `.gitignore` | Local recovery/log/operation-lock and temporary-file exclusions |
-| README pair and `LICENSE` | English/Chinese usage and MIT source license |
-| `docs-ai/common/` (tree-excluded) | Effective portable shared standards; no mandatory organization namespace, UI library, or package ecosystem |
-| `docs-ai/current/` (tree-excluded) | Source project facts/history, separate from consumer templates |
-| `docs/` (tree-excluded) | Human documentation area |
+| Key path or module | Responsibility | Dependency direction / ownership |
+| --- | --- | --- |
+| `AGENTS.md` | Single Agent instruction entry point and task-reading router | Directs the caller to applicable shared standards, project facts, and skills |
+| `SAF.json` | Release version, handler contract, configuration support, and normalized payload inventory | Release-owned schema-1 input with handler protocol 3/config support version 2; does not contain consumer preferences or project facts |
+| `SAF.config.json` | Typed project-owned values and restrictions | `Resolve-SafConfig -Root` validates/resolves schema 2 for handlers and Agent workflows; seed-only consumer template contains only that schema version, never source preferences |
+| `SAF.lock.json` | Independent bootstrap, installation, and framework-audit evidence | Project-owned state coordinated through `saf-core.ps1`; source bootstrap/installation may be null |
+| `scripts/init.ps1` | Source-only trusted bootstrap/recovery | Requires declared config support, validates/deploys five handlers and runtime-ignore rules from one commit, preserving configuration and audit/installation state; no payload sync or audit completion |
+| `origin.bat` and `scripts/origin.ps1` | Check/update/sync with seed protection, conflict detection, and legacy retirement | Wrapper calls local implementation; implementation uses core helpers and validated remote release data |
+| `local.bat` and `scripts/local.ps1` | Offline scoped backup, verified archive export/cleanup, archive-ignore, and a default-Backup menu | Calls core filesystem/recovery/log helpers; no remote controller or Agent engine |
+| `scripts/saf-core.ps1` | Single-read config snapshots, object-root/type validation, protected targets/missing ancestors, Git/blob acquisition, hashes/paths, state coordination, commit-receipt recovery, migration, backup, and logs | Shared by handlers and Agent state/config readers; recovery checks original/current policy and does not grant authority or certify arbitrary concurrency |
+| `debug.bat` and optional project operation scripts under `scripts/` | Project-owned debug/data-reset/publication dispatcher | Seeded entry point calls consumer implementations; this source supplies no configured project operations |
+| `.agents/skills/` | `sync-saf`, SAF structure auditing, and semantic AI-memory compression | Agent-session workflows reference the router and shared standards; not a model engine or tool registry |
+| `scripts/publish-saf.ps1` and `templates/` | Source-only release preparation and consumer config/document/directory seeds | Publisher validates/prepares `SAF.json`; templates initialize missing consumer files without source-project preferences or verified consumer facts |
+| `tests/test-saf.ps1` and `.github/workflows/verify.yml` | Disposable Git integration fixtures and CI verification | Default CI checks manifests/PowerShell syntax; functional fixtures are separately invoked on the configured platform matrix |
+| `.gitattributes` and `.gitignore` | Text normalization and operational-file exclusions | BAT checkout uses CRLF; recovery/log/lease data stays outside maintained payload facts |
+| README pair and `LICENSE` | English/Chinese usage and MIT source license | Source-only human-facing documentation and license |
+| `docs-ai/common/`, `docs-ai/current/`, and `docs/` | Shared standards, project facts/history, and human documentation respectively | Shared standards remain portable; current source facts are not copied to consumers; human content retains its ownership boundary |
 
-There are no application projects, assemblies, shared runtime libraries, databases, microservices, hosted UI, or deployed application units. SAF does not implement model inference, Agent scheduling, or tool registration. Skills execute in the caller's existing Agent session. Project operations are unconfigured examples until a consumer supplies implementations under `scripts/`.
+There are no solution files, application projects, assemblies, shared runtime libraries, databases, microservices, hosted UI, or deployed application units. SAF does not implement model inference, Agent scheduling, or tool registration. Skills execute in the caller's existing Agent session. Project operations are unconfigured examples until a consumer supplies implementations under `scripts/`.
+
+| Operation | Main dependency flow | Persistent effects |
+| --- | --- | --- |
+| Bootstrap/recovery | Trusted `scripts/init.ps1` -> config-aware Git release -> verified core/handler set | Backed-up handler replacement, legacy runtime preservation, runtime-ignore rules, and bootstrap state |
+| Remote synchronization | `origin.bat` -> local `origin.ps1` -> resolved config/core -> one Git release snapshot | Validated payload changes and installation state; Check permits only logs and never runtime migration |
+| Local maintenance | `local.bat` -> local `local.ps1` -> resolved config/core and built-in filesystem/ZIP APIs | Protected-path-aware recovery/archive/ignore work, migration, and logs |
+| Agent workflows | `AGENTS.md` -> resolved config and applicable standards/skill -> existing Agent session | Protected paths, Computer Use preference, UI guidance, and commit style within fixed verification/approval/history rules; audit uses the shared state writer |
+| Release verification | Publisher/tests/CI -> maintained manifest and disposable fixtures | Source release preparation or verification evidence, not consumer business execution |
 
 ## Runtime and state boundaries
 
-Bootstrap is the independent recovery path, not a permanent application installation. Its five deployed handlers are `origin.bat`, `local.bat`, `scripts/origin.ps1`, `scripts/local.ps1`, and `scripts/saf-core.ps1`. It validates the complete set from one commit before writes, backs up replaced handlers, adds runtime ignore rules, and merges bootstrap metadata while preserving installation/audit evidence. Full payload synchronization is a subsequent origin operation. The actual central source remains `Evigila/AGENTS.md`; a future renamed endpoint is not an implementation dependency.
+Bootstrap is the independent recovery path, not a permanent application installation. Its five deployed handlers are `origin.bat`, `local.bat`, `scripts/origin.ps1`, `scripts/local.ps1`, and `scripts/saf-core.ps1`. It requires protocol 3/config support 2 before executing source helpers, validates the set from one commit before writes, backs up replacements, preserves existing schema-2 config or seeds only its version when absent, and merges bootstrap state without losing installation/audit evidence. Older configuration must be explicitly migrated before reinitialization; bootstrap does not overwrite it. Full payload synchronization remains a subsequent origin operation. Older handlers must request compatible reinitialization instead of interpreting new configuration incorrectly. The source remains `Evigila/AGENTS.md`; no future renamed endpoint is assumed.
 
 Daily origin runs the installed local PowerShell code. Remote content is read as a manifest and regular Git blobs from a single resolved commit; it does not execute a separately acquired moving remote controller. Check reports release/compatibility/conflicts without modifying framework files, manifest, or lock, with a local log-only write exception. Sync checks and updates when available using that same snapshot. Update applies a validated plan; only `-update -force` authorizes replacement of conflicting managed content, with recovery copies. Incompatible schema/handlers require init refresh, not historical installer handoff.
 
-Paths are constrained to the repository and reject traversal, unsafe Windows names, linked paths, and invalid source blobs. Text hashes normalize CRLF and an initial UTF-8 BOM. Seed documents and nonempty project debug customizations remain protected, user-added skills are preserved, and Git origin/index/branch/commits are not modified. Legacy conversion preserves genuine old audit/installation evidence; differing old/new project state conflicts rather than silently selecting a winner.
+Paths are constrained to the repository and reject traversal, unsafe Windows names, linked paths, and invalid source blobs. Text hashes normalize CRLF and an initial UTF-8 BOM. Configured exact protected files and trailing-slash directory prefixes reject handler writes, including under Force; a changed config snapshot causes a retry rather than applying stale restrictions. Seed config/documents and nonempty project debug customizations remain protected, user skills are preserved, and Git origin/index/branch/commits are not modified. Legacy conversion preserves genuine old audit/installation evidence; conflicting state or runtime data is not silently overwritten.
 
-The lock has schema version 1 with independent `bootstrap`, `installation`, and `audit` sections. Writes share repository-local operation coordination and atomic file/transaction helpers. Audit calls `Set-SafState -Root <root> -Section audit -Value <object>`; it cannot replace other sections. Version comparison invalidates an old audit naturally, and neither update nor compression fabricates completion. Operations retain best-effort recovery; arbitrary external concurrent edits, abrupt process/power loss, and permanent external backup retention are not guaranteed by source inspection.
+The parser checks the lexical root before JSON output can enumerate an array, then checks the parsed object/schema. Core, pre-core bootstrap, and publisher apply the object-root requirement without a PowerShell 7-only switch. Config parsing and its raw hash use one byte read. Protection checks include every missing ancestor that a write would create; an existing directory needs a trailing-slash declaration, while an existing file rejects that slash. This does not turn an exact-file rule into a blanket existing-ancestor subtree rule.
+
+The lock has schema version 1 with independent `bootstrap`, `installation`, and `audit` sections. Writes share repository-local operation coordination and atomic file/transaction helpers. A completed SAF structure audit calls `Set-SafState -Root <root> -Section audit -Value <object>`; it cannot replace other sections or certify consumer project facts. Version comparison makes a framework audit due naturally, and neither update nor compression fabricates completion. Operations retain best-effort recovery; arbitrary external concurrent edits, abrupt process/power loss, and permanent external backup retention are not guaranteed by source inspection.
+
+Transactions retain a single-read before-image/raw hash per target, recheck it before mutation, and select atomic Create/Replace from expected existence rather than current fallback behavior. Deletion creates no parent directories. The helper reports commitment before a later exception; reverse recovery skips uncommitted paths and touches only still-matching operation results, under both the original and current protection sets. Unexpected external bytes or unavailable policy/path safety cause warnings/manual recovery. Restoring a deleted file cannot replace a newly appeared target. Commit receipts and hash comparisons narrow ownership without providing filesystem-wide isolation.
 
 ## Local maintenance and memory
 
-Manual snapshots live under `.agent/backup/` and contain scoped handlers/state, `.gitignore`, AI documents, and skills with exact-byte inventories/hashes. This is SAF recovery, not a full source or human-document backup. Logs live under `.agent/saf_log/`; local operation leases use `.agent/operation.lock`. These areas are distinct from `.agents/skills/` discovery.
+Manual snapshots live under `.agents/backup/` and contain scoped handlers/state/config, `.gitignore`, AI documents, and skills with exact-byte inventories/hashes. This is SAF recovery, not a full source or human-document backup. Logs use `.agents/saf_log/`; operation leases use `.agents/operation.lock`. These runtime subdirectories are distinct from `.agents/skills/` discovery even though they share one root. Writes preserve/migrate legacy `.agent/` storage; Check only appends a current log and never migrates data. Backups exclude old/new runtime storage so snapshots do not recursively contain themselves.
+
+Origin's automatic update/sync recovery path now explicitly includes an existing `SAF.config.json`, even when the seed is skipped and config is not a planned write. Its exact bytes/hash belong to the backup inventory, separately from preservation of live config.
 
 Archive cleanup resolves Downloads from the current user's Windows User Shell Folders Downloads GUID, supporting redirection; an explicit output destination is also accepted by the script. It exports hidden scoped content through built-in .NET ZIP support, verifies entry/content hashes, and deletes only unchanged exported files, preserving directory markers and changed/new source. Archive-ignore adds child rules with a `.gitkeep` exception and does not change the index. Already tracked content remains tracked; cleanup of tracked content creates local deletion differences for possible later user commits.
 
-Audit and semantic compression are skills only, with no `local.bat -audit` or `-compress` actions and no engine adapter. Compression snapshots recovery data, consolidates active memory, and archives superseded reports while preserving required complete inventories, effective facts, constraints, evidence, unfinished work, changelog immutability, and bug history.
+SAF structure auditing and semantic compression are skills only, with no `local.bat -audit` or `-compress` actions and no engine adapter. Structure auditing checks SAF's layout, required files, ownership, and state; project source, business architecture, and dependency-fact investigation remain separate work. Compression snapshots recovery data, consolidates active memory, and archives superseded reports while preserving effective facts, key project relationships, constraints, evidence, unfinished work, changelog immutability, and bug history.
+
+## Source project configuration
+
+The source root `SAF.config.json` selects its current repository/main and protects both README files. Its schema-2 project settings deny Computer Use testing, prefer `Material Design 3` UI guidance, and select commit style `follow-history` with initial style `english-imperative`. The consumer template is only `{ "schemaVersion": 2 }`; it does not copy source-specific paths or origin values. Generic defaults have no source or additional protected paths, deny Computer Use testing, and use those same UI/commit presentation defaults. UI guidance does not install or authorize a component library.
+
+English, fixed monthly SAF structural auditing, the three permitted root BAT scripts, and `AGENTS.md` as the only rule entry point remain shared standards. Appropriate implementation tests must run within the task's authorization and explicit limits. Commit approval is required unless already authorized, and existing commits must not be deleted or rewritten. These requirements cannot be configured away. Project name, automated-test authorization, delivery approval, and record time zone are not schema-2 configuration fields. Operational logs/state remain UTC; project records follow applicable shared/session time-zone guidance. Config cannot execute shell expressions, import modules, or grant permissions. `SAF.json`, `SAF.config.json`, and `SAF.lock.json` retain separate release/config/state ownership; release and lock schemas remain 1.
 
 ## Verification and current limits
 
-This inventory is based on the maintained SAF 2.0.0 implementation and configuration. Default CI performs manifest validation and PowerShell parsing; optional functional fixtures and interactive/manual acceptance are separate. The subsequent user-authorized Windows PowerShell 5.1 run passed 34 integration checks, including local fixture bootstrap/synchronization, rollback, archive export to a disposable destination, and BAT fallback without PowerShell 7. See the [5.1 verification record](1_changelogs/2026-11-12_115748_powershell-51-verification.md) for results and the long-path limitation. Live network bootstrap, actual Downloads redirection, interactive menus, full debug operations, semantic compression, and runtime checks on other platforms remain unverified. The earlier [implementation record](1_changelogs/2026-11-12_113446_saf-2-upgrade.md) retains its original static-only delivery evidence.
+Recorded on 2026-11-13 at 11:36, America/Sao_Paulo (UTC-03:00): the coordinator completed fresh isolated SAF 2.0.0 fixture runs under the ordinary user TEMP directory. Windows PowerShell 5.1 passed all 152 checks, exit 0; existing PowerShell 7 passed all 148 checks, exit 0. The difference is four Desktop-only fallback checks. Both runs covered schema 2, current defaults/UI/commit fields, removed-field rejection, and R1-R4 recovery/configuration regressions. No Computer Use, live network initialization, or other-platform runtime testing was performed. Earlier runs under the internal 3.0.0 label remain unpublished preparation history, separate from these fresh 2.0.0 results.
+
+The SAF structural audit completed for 2.0.0 at `2026-11-13T14:36:34Z`: 23 payload targets, eight required directories, three skill packages, and 72 local file references were checked. This structural result does not certify application architecture, dependency facts, or fresh-session Agent behavior.
+
+The earlier feature prepared under the unpublished 2.1.0 label passed 68 user-authorized native PowerShell 5.1 fixtures and a focused protected-empty-backup follow-up; its parsing/hash checks also passed. See the [configuration/storage record](1_changelogs/2026-11-12_163705_saf-project-configuration.md) for that original coverage. Those earlier results remain separate from final-target verification. Default CI validates manifests/PowerShell syntax; static source/structure checks alone do not establish functional behavior.
+
+The prior [5.1 verification record](1_changelogs/2026-11-12_115748_powershell-51-verification.md) retains earlier 2.0.0 preparation results and its long-path limitation; these were not public releases. Current fixtures also use disposable local sources/archive destinations; they do not establish live network publication/bootstrap, real Downloads redirection, interactive menus, full debug operations, semantic compression, or other-platform runtime. The earlier [implementation record](1_changelogs/2026-11-12_113446_saf-2-upgrade.md) retains its original static-only evidence.
+
+The [generality/configuration review](saf-generality-review.md) retains the four old-checkpoint diagnoses separately from the current schema-2 field trace. See the [fix record](1_changelogs/2026-11-13_084811_config-recovery-fixes.md) for repair history and the [regression checklist](saf-configuration-regression-checklist.md) for fresh 2.0.0 results and repeatable checks. Ordinary reports retain descriptive names without the reserved template `1_` prefix.

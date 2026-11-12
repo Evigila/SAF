@@ -56,14 +56,15 @@ function Get-LocalFiles([string]$Root, [string]$Relative) {
     }
 }
 
-function Update-LocalIgnore([string]$Root, [switch]$IgnoreArchive) {
+function Update-LocalIgnore([string]$Root, $Config, [switch]$IgnoreArchive) {
     $path = Get-SafTarget -Root $Root -Relative '.gitignore'
     $text = if ([IO.File]::Exists($path)) { [IO.File]::ReadAllText($path, $utf8) } else { '' }
     $lines = @($text.Replace("`r`n", "`n").Split("`n"))
-    $rules = @('/.agent/backup/', '/.agent/saf_log/', '/.agent/operation.lock')
+    $rules = @('/.agents/backup/', '/.agents/saf_log/', '/.agents/operation.lock')
     if ($IgnoreArchive) { $rules += @('/docs-ai/current/1_archived/*', '!/docs-ai/current/1_archived/.gitkeep') }
     $missing = @($rules | Where-Object { $_ -cnotin $lines })
     if ($missing.Count -eq 0) { return }
+    Assert-SafWritable -Root $Root -Relative '.gitignore' -Config $Config
     if ($text.Length -gt 0 -and -not $text.EndsWith("`n")) { $text += "`n" }
     $text += ($missing -join "`n") + "`n"
     $temporary = $path + '.' + [Guid]::NewGuid().ToString('N') + '.tmp'
@@ -75,7 +76,7 @@ function Update-LocalIgnore([string]$Root, [switch]$IgnoreArchive) {
 }
 
 function Get-LocalBackupPaths([string]$Root) {
-    $paths = @('AGENTS.md', 'SAF.json', 'SAF.lock.json', 'origin.bat', 'local.bat', 'debug.bat', '.gitignore',
+    $paths = @('AGENTS.md', 'SAF.json', 'SAF.config.json', 'SAF.lock.json', 'origin.bat', 'local.bat', 'debug.bat', '.gitignore',
         'scripts/saf-core.ps1', 'scripts/origin.ps1', 'scripts/local.ps1')
     foreach ($relative in $paths) { Get-LocalFiles -Root $Root -Relative $relative }
     foreach ($relative in @('docs-ai', '.agents/skills')) { Get-LocalFiles -Root $Root -Relative $relative }
@@ -89,7 +90,7 @@ function Get-LocalDownloads {
     return [Environment]::ExpandEnvironmentVariables([string]$property.Value)
 }
 
-function Remove-LocalEmptyArchiveDirectories([string]$Root) {
+function Remove-LocalEmptyArchiveDirectories([string]$Root, $Config, [switch]$ValidateOnly) {
     $source = Get-SafTarget -Root $Root -Relative $archiveRelative
     if (-not [IO.Directory]::Exists($source)) { return }
     $directories = New-Object 'Collections.Generic.List[string]'
@@ -104,24 +105,44 @@ function Remove-LocalEmptyArchiveDirectories([string]$Root) {
             $directories.Add($childRelative); $pending.Push($childRelative)
         }
     }
+    if ($ValidateOnly) {
+        foreach ($relative in $directories) { Assert-SafWritable -Root $Root -Relative $relative -Config $Config }
+        return
+    }
     foreach ($relative in @($directories.ToArray() | Sort-Object Length -Descending)) {
         $directory = Get-SafTarget -Root $Root -Relative $relative
-        if (@(Get-ChildItem -LiteralPath $directory -Force).Count -eq 0) { [IO.Directory]::Delete($directory) }
+        if (@(Get-ChildItem -LiteralPath $directory -Force).Count -eq 0) {
+            Assert-SafWritable -Root $Root -Relative $relative -Config $Config
+            [IO.Directory]::Delete($directory)
+        }
     }
 }
 
-function Export-LocalArchive([string]$Root, [string]$OutputDirectory) {
+function Export-LocalArchive([string]$Root, [string]$OutputDirectory, $Config) {
     $sourceDirectory = Get-SafTarget -Root $Root -Relative $archiveRelative
     $paths = @(Get-LocalFiles -Root $Root -Relative $archiveRelative | Where-Object {
         $_ -ne ($archiveRelative + '/.gitkeep') -or (Get-Item -LiteralPath (Get-SafTarget $Root $_) -Force).Length -gt 0
     } | Sort-Object)
-    if ($paths.Count -eq 0) { Remove-LocalEmptyArchiveDirectories -Root $Root; Write-Host '[SAF] No archived files to clean.'; return $null }
+    foreach ($relative in $paths) { Assert-SafWritable -Root $Root -Relative $relative -Config $Config }
+    Remove-LocalEmptyArchiveDirectories -Root $Root -Config $Config -ValidateOnly
+    $markerRelative = $archiveRelative + '/.gitkeep'
+    $marker = Get-SafTarget -Root $Root -Relative $markerRelative
+    if ([IO.Directory]::Exists($sourceDirectory) -and (-not [IO.File]::Exists($marker) -or $markerRelative -in $paths)) {
+        Assert-SafWritable -Root $Root -Relative $markerRelative -Config $Config
+    }
+    if ($paths.Count -eq 0) { Remove-LocalEmptyArchiveDirectories -Root $Root -Config $Config; Write-Host '[SAF] No archived files to clean.'; return $null }
     if (-not $OutputDirectory) { $OutputDirectory = Get-LocalDownloads }
     $output = [IO.Path]::GetFullPath($OutputDirectory)
     Assert-LocalUnlinkedPath $output
     if ($output.Equals($sourceDirectory, [StringComparison]::OrdinalIgnoreCase) -or
         $output.StartsWith($sourceDirectory.TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
         throw 'Archive destination must be outside the archived source directory.'
+    }
+    $archivePath = Join-Path $output ('SAF-archived-' + [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ') + '-' + [Guid]::NewGuid().ToString('N') + '.zip')
+    $rootPrefix = $Root.TrimEnd([char]92, [char]47) + [IO.Path]::DirectorySeparatorChar
+    if ($archivePath.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+        $outputRelative = $archivePath.Substring($rootPrefix.Length).Replace([char]92, [char]47)
+        Assert-SafWritable -Root $Root -Relative $outputRelative -Config $Config
     }
     [void][IO.Directory]::CreateDirectory($output)
     $snapshots = @()
@@ -133,7 +154,6 @@ function Export-LocalArchive([string]$Root, [string]$OutputDirectory) {
     $inventoryBytes = $utf8.GetBytes(($inventory | ConvertTo-Json -Depth 10) + "`n")
     Add-Type -AssemblyName System.IO.Compression
     Add-Type -AssemblyName System.IO.Compression.FileSystem
-    $archivePath = Join-Path $output ('SAF-archived-' + [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ') + '-' + [Guid]::NewGuid().ToString('N') + '.zip')
     $stream = [IO.File]::Open($archivePath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
     try {
         $zip = New-Object IO.Compression.ZipArchive($stream, [IO.Compression.ZipArchiveMode]::Create, $true)
@@ -176,6 +196,7 @@ function Export-LocalArchive([string]$Root, [string]$OutputDirectory) {
     try {
         foreach ($snapshot in $snapshots) {
             $path = Get-SafTarget -Root $Root -Relative $snapshot.path
+            Assert-SafWritable -Root $Root -Relative $snapshot.path -Config $Config
             if ((Get-SafByteHash -Bytes ([IO.File]::ReadAllBytes($path))) -ne $snapshot.sha256) { throw "Source changed during cleanup; preserved: $($snapshot.path). Export: $archivePath" }
             [IO.File]::Delete($path)
             $deleted.Add($snapshot)
@@ -199,9 +220,12 @@ function Export-LocalArchive([string]$Root, [string]$OutputDirectory) {
         throw $cleanupError
     }
     # Remove only verified-empty child directories, never recursively delete a source tree.
-    Remove-LocalEmptyArchiveDirectories -Root $Root
+    Remove-LocalEmptyArchiveDirectories -Root $Root -Config $Config
     $marker = Get-SafTarget -Root $Root -Relative ($archiveRelative + '/.gitkeep')
-    if (-not (Test-Path -LiteralPath $marker)) { [IO.File]::WriteAllBytes($marker, [byte[]]@()) }
+    if (-not (Test-Path -LiteralPath $marker)) {
+        Assert-SafWritable -Root $Root -Relative ($archiveRelative + '/.gitkeep') -Config $Config
+        [IO.File]::WriteAllBytes($marker, [byte[]]@())
+    }
     $remaining = @(Get-LocalFiles -Root $Root -Relative $archiveRelative | Where-Object { $_ -ne ($archiveRelative + '/.gitkeep') })
     if ($remaining.Count -gt 0) { throw "Export verified but new archive content remains; review $archivePath and the source directory." }
     Write-Host "[SAF] Verified archive exported to $archivePath"
@@ -238,24 +262,26 @@ try {
     else {
         Assert-LocalUnlinkedPath $root
         $operation = Enter-SafOperation -Root $root
+        $config = Resolve-SafConfig -Root $root
+        $null = Move-SafLegacyStorage -Root $root
         if ($Backup) {
             $action = 'backup'
             $paths = @(Get-LocalBackupPaths -Root $root | Sort-Object -Unique)
             $backupPath = New-SafBackup -Root $root -RelativePaths $paths -Reason 'local-backup'
-            Update-LocalIgnore -Root $root
+            Update-LocalIgnore -Root $root -Config $config
             $data = @{ backupPath = $backupPath; files = $paths.Count }
             Write-Host "[SAF] Backup saved to $backupPath"
         } elseif ($NoArquived) {
             $action = 'no-arquived'
             $null = Get-LocalFiles -Root $root -Relative $archiveRelative
-            Update-LocalIgnore -Root $root -IgnoreArchive
+            Update-LocalIgnore -Root $root -Config $config -IgnoreArchive
             $data = @{ directory = $archiveRelative }
             Write-Warning 'Existing tracked archived files remain tracked. The index and existing commits were not changed.'
             Write-Host '[SAF] Added archive ignore rules.'
         } else {
             $action = 'clean-arquived'
-            Update-LocalIgnore -Root $root
-            $export = Export-LocalArchive -Root $root -OutputDirectory $Destination
+            Update-LocalIgnore -Root $root -Config $config
+            $export = Export-LocalArchive -Root $root -OutputDirectory $Destination -Config $config
             $data = @{ archivePath = $export; directory = $archiveRelative }
         }
         $result = 'success'

@@ -9,8 +9,17 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $utf8 = New-Object Text.UTF8Encoding($false, $true)
+function Read-PublishJsonObject([byte[]]$Bytes) {
+    $text = $utf8.GetString($Bytes).TrimStart([char]0xFEFF)
+    # Preserve the object-root contract on both PowerShell 5.1 and PowerShell 7.
+    if ($text -notmatch '\A[ \t\r\n]*\{') { throw 'Expected a top-level JSON object.' }
+    $value = if ((Get-Command ConvertFrom-Json).Parameters.ContainsKey('DateKind')) { ConvertFrom-Json -InputObject $text -DateKind String }
+        else { ConvertFrom-Json -InputObject $text }
+    if ($null -eq $value -or $value -isnot [pscustomobject]) { throw 'Expected a top-level JSON object.' }
+    return $value
+}
 $path = Join-Path $root 'SAF.json'
-$manifest = [IO.File]::ReadAllText($path, $utf8) | ConvertFrom-Json
+$manifest = Read-PublishJsonObject ([IO.File]::ReadAllBytes($path))
 if (-not $Check -and -not $Version) { throw 'Specify -Check or -Version <higher-version>.' }
 
 function Assert-ManifestPath([string]$Relative) {
@@ -21,8 +30,13 @@ function Assert-ManifestPath([string]$Relative) {
         }).Count -gt 0) { throw "Invalid manifest path: $Relative" }
 }
 
-if ($manifest.schemaVersion -ne 1 -or $manifest.frameworkVersion -notmatch '^\d+\.\d+\.\d+$' -or
-    $manifest.handlerProtocolVersion -ne 1) { throw 'Unsupported SAF release manifest.' }
+if (($manifest.schemaVersion -isnot [int] -and $manifest.schemaVersion -isnot [long]) -or $manifest.schemaVersion -ne 1 -or
+    $manifest.frameworkVersion -notmatch '^\d+\.\d+\.\d+$' -or
+    [version]$manifest.frameworkVersion -lt [version]'2.0.0' -or $manifest.handlerProtocolVersion -ne 3 -or
+    ($manifest.handlerProtocolVersion -isnot [int] -and $manifest.handlerProtocolVersion -isnot [long]) -or
+    -not $manifest.PSObject.Properties['configSupportVersion'] -or
+    ($manifest.configSupportVersion -isnot [int] -and $manifest.configSupportVersion -isnot [long]) -or
+    $manifest.configSupportVersion -ne 2) { throw 'Unsupported SAF 2 release manifest.' }
 if (-not $Check -and ($Version -notmatch '^\d+\.\d+\.\d+$' -or [version]$Version -le [version]$manifest.frameworkVersion)) {
     throw 'Publishing requires a strictly greater stable major.minor.patch version.'
 }
@@ -37,7 +51,7 @@ foreach ($entry in @($manifest.files)) {
             -not $entry.target.StartsWith('docs-ai/common/', [StringComparison]::Ordinal) -and
             -not $entry.target.StartsWith('.agents/skills/', [StringComparison]::Ordinal)) { throw "Invalid managed target: $($entry.target)" }
     } elseif ($entry.mode -eq 'seed') {
-        if ($entry.target -notin @('debug.bat', 'docs/.gitkeep') -and
+        if ($entry.target -notin @('SAF.config.json', 'debug.bat', 'docs/.gitkeep') -and
             -not $entry.target.StartsWith('docs-ai/current/', [StringComparison]::Ordinal)) { throw "Invalid seed target: $($entry.target)" }
     } else { throw "Unknown file mode: $($entry.mode)" }
     $targets[$entry.target] = $entry
@@ -64,16 +78,25 @@ if (@(Compare-Object ($expectedBootstrap | Sort-Object) ($bootstrap | Sort-Objec
 foreach ($required in ($expectedBootstrap + @('AGENTS.md', 'docs-ai/common/rules.md', 'docs-ai/common/codedesign.md', 'docs-ai/common/UIUX.md'))) {
     if (-not $targets.ContainsKey($required) -or $targets[$required].mode -ne 'managed') { throw "Required managed target is absent: $required" }
 }
-$requiredSeeds = @('debug.bat', 'docs/.gitkeep', 'docs-ai/current/1_architecture.md', 'docs-ai/current/1_dependency.md',
+$requiredSeeds = @('SAF.config.json', 'debug.bat', 'docs/.gitkeep', 'docs-ai/current/1_architecture.md', 'docs-ai/current/1_dependency.md',
     'docs-ai/current/1_changelogs/.gitkeep', 'docs-ai/current/1_bugreports/.gitkeep', 'docs-ai/current/1_archived/.gitkeep')
 foreach ($required in $requiredSeeds) {
     if (-not $targets.ContainsKey($required) -or $targets[$required].mode -ne 'seed') { throw "Required project seed is absent: $required" }
 }
+$configEntry = $targets['SAF.config.json']
+if ($configEntry.source -cne 'templates/SAF.config.json') { throw 'Project configuration must use the neutral consumer template.' }
+$configTemplate = Read-PublishJsonObject ([IO.File]::ReadAllBytes((Join-Path $root $configEntry.source)))
+if (@($configTemplate.PSObject.Properties).Count -ne 1 -or -not $configTemplate.PSObject.Properties['schemaVersion'] -or
+    ($configTemplate.schemaVersion -isnot [int] -and $configTemplate.schemaVersion -isnot [long]) -or
+    $configTemplate.schemaVersion -ne 2) { throw 'SAF.config.json template must contain only numeric schemaVersion: 2.' }
 if ($Check) {
     if ($changed.Count -gt 0) { throw ('Manifest hashes are stale: ' + ($changed -join ', ')) }
     Write-Host "SAF $($manifest.frameworkVersion) manifest and payload hashes verified."
     return
 }
+. (Join-Path $PSScriptRoot 'saf-core.ps1')
+$config = Resolve-SafConfig -Root $root
+Assert-SafWritable -Root $root -Relative 'SAF.json' -Config $config
 $manifest.frameworkVersion = $Version
 $temporary = $path + '.' + [Guid]::NewGuid().ToString('N') + '.tmp'
 try {

@@ -12,6 +12,7 @@ $root = $null; $lease = $null; $exitCode = 1; $result = 'error'; $action = 'orig
 try {
     if (-not $ProjectRoot) { $ProjectRoot = if ($env:SAF_PROJECT_ROOT) { $env:SAF_PROJECT_ROOT } else { Split-Path -Parent $PSScriptRoot } }
     $root = Get-SafRoot -ProjectRoot $ProjectRoot
+    $config = Resolve-SafConfig -Root $root
     if (([int]$Check.IsPresent + [int]$Update.IsPresent + [int]$Sync.IsPresent) -gt 1) { throw 'Choose one action: -check, -update, or -sync.' }
     if ($Force -and -not $Update) { throw '-force must accompany -update.' }
     $action = if ($Check) { 'origin.check' } elseif ($Update) { 'origin.update' } else { 'origin.sync' }
@@ -20,8 +21,11 @@ try {
     $state = Read-SafState -Root $root
     $lockHash = Get-SafExistingHash (Get-SafTarget $root 'SAF.lock.json') -Raw
     $sourceState = if ($state.installation) { $state.installation } else { $state.bootstrap }
-    if (-not $Repository) { $Repository = if ($sourceState) { $sourceState.repository } else { 'https://github.com/Evigila/AGENTS.md.git' } }
-    if (-not $Ref) { $Ref = if ($sourceState) { $sourceState.ref } else { 'main' } }
+    foreach ($key in @('Repository', 'Ref')) {
+        if ($PSBoundParameters.ContainsKey($key) -and [string]::IsNullOrWhiteSpace([string](Get-Variable -Name $key -ValueOnly))) { throw "An explicit $key cannot be empty." }
+    }
+    if (-not $Repository) { $Repository = if ($config.origin.repository) { $config.origin.repository } elseif ($sourceState) { $sourceState.repository } else { throw 'No source configured. Run scripts/init.ps1 or specify -Repository.' } }
+    if (-not $Ref) { $Ref = if ($config.origin.ref) { $config.origin.ref } elseif ($sourceState) { $sourceState.ref } else { 'main' } }
     $release = Get-SafRelease -Root $root -Repository $Repository -Ref $Ref -SourcePath $SourcePath
     $version = $release.manifest.frameworkVersion
     $installed = $state.installation
@@ -84,6 +88,9 @@ try {
     if ($hasLegacyDebug) {
         $operations.Add([pscustomobject]@{ relative = 'debug-handler.bat'; bytes = $null; delete = $true; expected = Get-SafExistingHash $legacyDebug -Raw })
     }
+    Assert-SafConfigUnchanged -Root $root -Config $config
+    foreach ($operation in $operations) { Assert-SafWritable -Root $root -Relative $operation.relative -Config $config }
+    if (-not $Check) { Assert-SafWritable -Root $root -Relative 'SAF.lock.json' -Config $config; [void](Move-SafLegacyStorage -Root $root) }
     $needsUpdate = -not $installed -or $operations.Count -gt 0 -or $installed.manifestSha256 -ne $release.manifestHash -or
         $installed.repository -ne $Repository -or $installed.ref -ne $Ref
     Write-Host "[SAF] Source $version; commit $($release.commit)."
@@ -96,7 +103,7 @@ try {
     } elseif ($conflicts.Count -gt 0 -and -not $Force) { $exitCode = 3; $result = 'conflict'; Write-Host '[SAF] No payload changes made. Resolve customizations or explicitly use -update -force.' }
     elseif (-not $needsUpdate) { $exitCode = 0; $result = 'current'; Write-Host '[SAF] Current.' }
     else {
-        $backupPaths = @($operations | ForEach-Object { $_.relative }) + @('SAF.lock.json')
+        $backupPaths = @($operations | ForEach-Object { $_.relative }) + @('SAF.lock.json', 'SAF.config.json')
         $backup = New-SafBackup -Root $root -RelativePaths $backupPaths -Reason $action
         Write-Host "[SAF] Recovery snapshot: $backup"
         $state.installation = [pscustomobject][ordered]@{ frameworkVersion = $version; repository = $Repository; ref = $Ref
@@ -104,7 +111,7 @@ try {
             synchronizedAtUtc = [DateTime]::UtcNow.ToString('o') }
         $handlerHashes = [ordered]@{}
         foreach ($relative in $script:SafHandlers) { $handlerHashes[$relative] = $managed[$relative] }
-        $state.bootstrap = [pscustomobject]@{ handlerProtocolVersion = 1; repository = $Repository; ref = $Ref
+        $state.bootstrap = [pscustomobject]@{ handlerProtocolVersion = 3; configSupportVersion = 2; repository = $Repository; ref = $Ref
             commit = $release.commit; managedFiles = [pscustomobject]$handlerHashes }
         if ($state.PSObject.Properties['migration']) { $state.PSObject.Properties.Remove('migration') }
         $operations.Add([pscustomobject]@{ relative = 'SAF.lock.json'; bytes = ConvertTo-SafBytes $state; delete = $false; expected = $lockHash })

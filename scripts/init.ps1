@@ -1,24 +1,37 @@
 #requires -Version 5.1
+# Source-only bootstrap; the target comes from the caller, not this script's folder.
 [CmdletBinding()]
 param(
     [string]$ProjectRoot = (Get-Location).ProviderPath,
-    [string]$Repository = 'https://github.com/Evigila/AGENTS.md.git',
-    [string]$Ref = 'main', [string]$SourcePath
+    [string]$Repository,
+    [string]$Ref, [string]$SourcePath
 )
 # Evaluation through irm | iex must not terminate the caller's shell.
 try {
+foreach ($key in @('Repository', 'Ref')) {
+    if ($PSBoundParameters.ContainsKey($key) -and [string]::IsNullOrWhiteSpace($PSBoundParameters[$key])) { throw "Explicit $key cannot be empty." }
+}
 & {
     [CmdletBinding()]
     param(
         [string]$ProjectRoot = (Get-Location).ProviderPath,
-        [string]$Repository = 'https://github.com/Evigila/AGENTS.md.git',
-        [string]$Ref = 'main', [string]$SourcePath
+        [string]$Repository,
+        [string]$Ref, [string]$SourcePath
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = 'Stop'
     $cache = $null; $lease = $null; $root = $null; $coreLoaded = $false; $result = 'error'
     $startedAtUtc = [DateTime]::UtcNow.ToString('o')
     $encoding = New-Object Text.UTF8Encoding($false, $true)
+    function Read-BootJsonObject([byte[]]$Bytes) {
+        $text = $encoding.GetString($Bytes).TrimStart([char]0xFEFF)
+        # Check the root before ConvertFrom-Json can enumerate a single-item array.
+        if ($text -notmatch '\A[ \t\r\n]*\{') { throw 'Expected a top-level JSON object.' }
+        $value = if ((Get-Command ConvertFrom-Json).Parameters.ContainsKey('DateKind')) { ConvertFrom-Json -InputObject $text -DateKind String }
+            else { ConvertFrom-Json -InputObject $text }
+        if ($null -eq $value -or $value -isnot [pscustomobject]) { throw 'Expected a top-level JSON object.' }
+        return $value
+    }
     function Invoke-BootGit([string[]]$Arguments, [switch]$Text) {
         $quoted = foreach ($value in $Arguments) {
             '"' + [regex]::Replace([regex]::Replace($value, '(\\*)"', '$1$1\"'), '(\\+)$', '$1$1') + '"'
@@ -44,6 +57,31 @@ try {
         $root = [IO.Path]::GetFullPath($ProjectRoot).TrimEnd([char]92, [char]47)
         $gitRoot = Invoke-BootGit @('-C', $root, 'rev-parse', '--show-toplevel') -Text
         if (-not $root.Equals([IO.Path]::GetFullPath($gitRoot).TrimEnd([char]92, [char]47), [StringComparison]::OrdinalIgnoreCase)) { throw 'Run initialization at the target Git repository root.' }
+        # Read data only before acquisition. The verified core performs complete validation before writes.
+        $existingConfigPath = Join-Path $root 'SAF.config.json'
+        if ([IO.File]::Exists($existingConfigPath)) {
+            $existingConfig = Read-BootJsonObject ([IO.File]::ReadAllBytes($existingConfigPath))
+            if (-not $existingConfig.PSObject.Properties['schemaVersion'] -or
+                ($existingConfig.schemaVersion -isnot [int] -and $existingConfig.schemaVersion -isnot [long]) -or $existingConfig.schemaVersion -ne 2) {
+                throw 'SAF 2 requires SAF.config.json schema 2. Migrate the existing configuration first, then rerun the trusted scripts/init.ps1 bootstrap. The existing configuration is preserved.'
+            }
+            if ($existingConfig.PSObject.Properties['origin'] -and $existingConfig.origin) {
+                if (-not $Repository -and $existingConfig.origin.PSObject.Properties['repository']) { $Repository = $existingConfig.origin.repository }
+                if (-not $Ref -and $existingConfig.origin.PSObject.Properties['ref']) { $Ref = $existingConfig.origin.ref }
+            }
+        }
+        $existingStatePath = Join-Path $root 'SAF.lock.json'
+        if ([IO.File]::Exists($existingStatePath) -and (-not $Repository -or -not $Ref)) {
+            $existingState = Read-BootJsonObject ([IO.File]::ReadAllBytes($existingStatePath))
+            if ($existingState.schemaVersion -ne 1) { throw 'Unsupported SAF state.' }
+            $existingSource = if ($existingState.installation) { $existingState.installation } else { $existingState.bootstrap }
+            if ($existingSource) {
+                if (-not $Repository) { $Repository = $existingSource.repository }
+                if (-not $Ref) { $Ref = $existingSource.ref }
+            }
+        }
+        if (-not $Repository) { $Repository = 'https://github.com/Evigila/AGENTS.md.git' }
+        if (-not $Ref) { $Ref = 'main' }
         if (-not $Repository -or $Repository.StartsWith('-') -or -not $Ref -or $Ref.StartsWith('-')) { throw 'Invalid bootstrap source or ref.' }
         $repositoryUri = $null
         if ([Uri]::TryCreate($Repository, [UriKind]::Absolute, [ref]$repositoryUri) -and $repositoryUri.Scheme -in @('http', 'https') -and
@@ -61,9 +99,12 @@ try {
             $commit = Invoke-BootGit @('-C', $source, 'rev-parse', 'FETCH_HEAD^{commit}') -Text
         }
         if ($commit -notmatch '^[0-9a-f]{40}$') { throw 'Bootstrap must resolve one exact Git commit.' }
-        $manifest = $encoding.GetString((Read-BootBlob 'SAF.json')) | ConvertFrom-Json
-        if ($manifest.schemaVersion -ne 1 -or $manifest.handlerProtocolVersion -ne 1 -or
-            $manifest.frameworkVersion -notmatch '^\d+\.\d+\.\d+$') { throw 'Unsupported bootstrap manifest.' }
+        $manifest = Read-BootJsonObject (Read-BootBlob 'SAF.json')
+        if (($manifest.schemaVersion -isnot [int] -and $manifest.schemaVersion -isnot [long]) -or $manifest.schemaVersion -ne 1 -or
+            ($manifest.handlerProtocolVersion -isnot [int] -and $manifest.handlerProtocolVersion -isnot [long]) -or $manifest.handlerProtocolVersion -ne 3 -or
+            -not $manifest.PSObject.Properties['configSupportVersion'] -or
+            ($manifest.configSupportVersion -isnot [int] -and $manifest.configSupportVersion -isnot [long]) -or $manifest.configSupportVersion -ne 2 -or
+            $manifest.frameworkVersion -notmatch '^\d+\.\d+\.\d+$' -or [version]$manifest.frameworkVersion -lt [version]'2.0.0') { throw 'Unsupported SAF 2 bootstrap manifest.' }
         $handlers = @('origin.bat', 'local.bat', 'scripts/origin.ps1', 'scripts/local.ps1', 'scripts/saf-core.ps1')
         if (@($manifest.bootstrapFiles).Count -ne 5 -or @(Compare-Object ($handlers | Sort-Object) (@($manifest.bootstrapFiles) | Sort-Object)).Count -ne 0) { throw 'Invalid bootstrap handler set.' }
         $payload = @{}
@@ -77,15 +118,25 @@ try {
             if ($hash -ne $entries[0].sha256) { throw "Bootstrap hash mismatch: $relative" }
             $payload[$relative] = [pscustomobject]@{ bytes = $bytes; hash = $hash }
         }
+        $configEntries = @($manifest.files | Where-Object target -eq 'SAF.config.json')
+        if ($configEntries.Count -ne 1 -or $configEntries[0].source -ne 'templates/SAF.config.json' -or $configEntries[0].mode -ne 'seed') { throw 'Missing neutral configuration seed.' }
+        $configBytes = Read-BootBlob 'templates/SAF.config.json'
         $corePath = Join-Path $cache 'saf-core.ps1'
         [IO.File]::WriteAllBytes($corePath, $payload['scripts/saf-core.ps1'].bytes)
         . $corePath
         $script:SafStartedAtUtc = $startedAtUtc
         $coreLoaded = $true; $root = Get-SafRoot -ProjectRoot $root
+        if ((Get-SafHash $configBytes) -ne $configEntries[0].sha256) { throw 'Configuration seed hash mismatch.' }
+        $seedConfig = Read-SafJson $configBytes
+        Assert-SafConfigObject $seedConfig @('schemaVersion') 'config seed'
+        if (($seedConfig.schemaVersion -isnot [int] -and $seedConfig.schemaVersion -isnot [long]) -or $seedConfig.schemaVersion -ne 2) { throw 'The neutral configuration seed must use numeric schemaVersion: 2.' }
+        $config = Resolve-SafConfig -Root $root
+        foreach ($relative in ($handlers + @('SAF.lock.json'))) { Assert-SafWritable -Root $root -Relative $relative -Config $config }
         $lease = Enter-SafOperation -Root $root
+        [void](Move-SafLegacyStorage -Root $root)
         $state = Read-SafState -Root $root
         $lockHash = Get-SafExistingHash (Get-SafTarget $root 'SAF.lock.json') -Raw
-        $backup = New-SafBackup -Root $root -RelativePaths ($handlers + @('SAF.lock.json', 'AGENTS.lock.json', 'AGENTS.ensure.json', '.gitignore')) -Reason 'init'
+        $backup = New-SafBackup -Root $root -RelativePaths ($handlers + @('SAF.config.json', 'SAF.lock.json', 'AGENTS.lock.json', 'AGENTS.ensure.json', '.gitignore')) -Reason 'init'
         $operations = New-Object 'Collections.Generic.List[object]'; $hashes = [ordered]@{}
         foreach ($relative in $handlers) {
             $target = Get-SafTarget $root $relative
@@ -94,7 +145,8 @@ try {
         }
         $ignoreOperation = Get-SafRuntimeIgnoreOperation -Root $root
         if ($ignoreOperation) { $operations.Add($ignoreOperation) }
-        $state.bootstrap = [pscustomobject]@{ handlerProtocolVersion = 1; repository = $Repository; ref = $Ref; commit = $commit; managedFiles = [pscustomobject]$hashes }
+        if ($null -eq $config.sourceHash) { $operations.Add([pscustomobject]@{ relative = 'SAF.config.json'; bytes = $configBytes; delete = $false; expected = $null }) }
+        $state.bootstrap = [pscustomobject]@{ handlerProtocolVersion = 3; configSupportVersion = 2; repository = $Repository; ref = $Ref; commit = $commit; managedFiles = [pscustomobject]$hashes }
         $operations.Add([pscustomobject]@{ relative = 'SAF.lock.json'; bytes = ConvertTo-SafBytes $state; delete = $false; expected = $lockHash })
         Invoke-SafTransaction -Root $root -Operations $operations.ToArray()
         $result = 'initialized'

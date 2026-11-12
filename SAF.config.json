@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 2,
+  "origin": {
+    "repository": "https://github.com/Evigila/AGENTS.md.git",
+    "ref": "main"
+  },
+  "project": {
+    "protectedPaths": ["README.md", "README_zh-CN.md"],
+    "verification": {
+      "computerUse": "deny"
+    },
+    "ui": {
+      "framework": "Material Design 3"
+    },
+    "commit": {
+      "style": "follow-history",
+      "initialStyle": "english-imperative"
+    }
+  }
+}

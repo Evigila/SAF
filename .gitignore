@@ -1,4 +1,7 @@
 .agents/backups/
+/.agents/backup/
+/.agents/saf_log/
+/.agents/operation.lock
 /.agent/backup/
 /.agent/saf_log/
 /.agent/operation.lock

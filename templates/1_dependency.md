@@ -1,6 +1,6 @@
 # Project dependency inventory
 
-**Status:** Template awaiting repository inspection. No dependency identities or versions have been verified. Complete this inventory from declarations and resolved evidence before marking the documentation audit complete.
+**Status:** Template awaiting relevant project work or an explicitly requested dependency review. No dependency identities or versions have been verified. Populate this inventory from declarations and resolved evidence as that work requires. A SAF structural audit checks this file's presence and format only; this initialized template does not prevent structural audit completion or imply verified project dependencies.
 
 ## Inventory scope and evidence
 
@@ -34,7 +34,7 @@ Record project-to-project dependencies separately from external package dependen
 
 ## SDKs, frameworks, and runtimes
 
-Include required toolchains, target frameworks, runtime requirements, and relevant pinning or compatibility constraints. Record SAF's existing Git/PowerShell requirements separately from the application's runtime dependencies; its Windows BAT interfaces do not imply a Windows-only application. Do not install software merely to populate this inventory.
+Include required toolchains, target frameworks, runtime requirements, and relevant pinning or compatibility constraints. Record SAF's existing Git/PowerShell requirements separately from application runtime dependencies; its Windows BAT interfaces do not imply a Windows-only application. Project-owned `SAF.config.json` is validated configuration, not a package or dependency declaration. Do not install software merely to populate this inventory or copy the central source project's optional preferences into a consumer inventory.
 
 | Dependency | Declared constraint | Observed/resolved version | Consumers | Usage scope | Purpose | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |

@@ -15,7 +15,7 @@ if not exist "%~dp0scripts\local.ps1" (
     exit /b 1
 )
 if not exist "%~dp0scripts\saf-core.ps1" (
-    echo [SAF] Shared helper is missing. Rerun trusted init.ps1 to repair the handlers.
+    echo [SAF] Shared helper is missing. Rerun trusted remote scripts/init.ps1 to repair the handlers.
     if "%~1"=="" pause
     exit /b 4
 )
