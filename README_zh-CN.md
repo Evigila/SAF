@@ -32,15 +32,12 @@ SAF (Simple Agent Framework) 是一个简易的注入型agent框架，适用于�
 
 在目标 **Git 根目录**执行：
 
-```powershell
-irm https://raw.githubusercontent.com/Evigila/SAF/main/scripts/init.ps1 | iex
-.\origin.bat -sync
-```
-
-或者使用curl（当PowerShell出现问题时）：
-
 ```bat
-curl.exe -fL "https://raw.githubusercontent.com/Evigila/SAF/main/scripts/init.ps1" -o "%TEMP%\saf-init.ps1" && powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%TEMP%\saf-init.ps1" -ProjectRoot "%CD%" && call origin.bat -sync
+curl.exe -fL "https://raw.githubusercontent.com/Evigila/SAF/main/scripts/init.ps1" -o "$env:TEMP\saf-init.ps1"
+if ($LASTEXITCODE -eq 0) {
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\saf-init.ps1" -ProjectRoot "$PWD"
+    if ($LASTEXITCODE -eq 0) { .\origin.bat -sync }
+}
 ```
 
 ## 你的项目会获得什么？

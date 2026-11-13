@@ -32,15 +32,12 @@ SAF is a simple agent framework for existing Git repositories, allowing you to q
 
 Run following command at the target **Git repo**:
 
-```powershell
-irm https://raw.githubusercontent.com/Evigila/SAF/main/scripts/init.ps1 | iex
-.\origin.bat -sync
-```
-
-Or use curl (when PowerShell has problems):
-
 ```bat
-curl.exe -fL "https://raw.githubusercontent.com/Evigila/SAF/main/scripts/init.ps1" -o "%TEMP%\saf-init.ps1" && powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%TEMP%\saf-init.ps1" -ProjectRoot "%CD%" && call origin.bat -sync
+curl.exe -fL "https://raw.githubusercontent.com/Evigila/SAF/main/scripts/init.ps1" -o "$env:TEMP\saf-init.ps1"
+if ($LASTEXITCODE -eq 0) {
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\saf-init.ps1" -ProjectRoot "$PWD"
+    if ($LASTEXITCODE -eq 0) { .\origin.bat -sync }
+}
 ```
 
 ## What will your project receive?
