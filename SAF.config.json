@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "origin": {
-    "repository": "https://github.com/Evigila/AGENTS.md.git",
+    "repository": "https://github.com/Evigila/SAF.git",
     "ref": "main"
   },
   "project": {
@@ -10,7 +10,7 @@
       "computerUse": "deny"
     },
     "ui": {
-      "framework": "Material Design 3"
+      "framework": "https://github.com/Evigila/Flourish.git"
     },
     "commit": {
       "style": "follow-history",
