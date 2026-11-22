@@ -57,20 +57,32 @@ foreach ($key in @('Repository', 'Ref')) {
         $root = [IO.Path]::GetFullPath($ProjectRoot).TrimEnd([char]92, [char]47)
         $gitRoot = Invoke-BootGit @('-C', $root, 'rev-parse', '--show-toplevel') -Text
         if (-not $root.Equals([IO.Path]::GetFullPath($gitRoot).TrimEnd([char]92, [char]47), [StringComparison]::OrdinalIgnoreCase)) { throw 'Run initialization at the target Git repository root.' }
+        # Check the relocated paths before reading configuration or state with the pre-core bootstrap.
+        foreach ($oldPath in @('SAF.config.json', 'SAF.lock.json')) {
+            if (Test-Path -LiteralPath (Join-Path $root $oldPath)) {
+                throw "Root $oldPath is still present. Back it up and move it to .agents/saf/$oldPath before reinitializing."
+            }
+        }
+        foreach ($relative in @('.agents', '.agents/saf', '.agents/saf/SAF.config.json', '.agents/saf/SAF.lock.json')) {
+            $item = Get-Item -LiteralPath (Join-Path $root $relative) -Force -ErrorAction SilentlyContinue
+            if ($item -and (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)) {
+                throw "Refusing linked path: $relative"
+            }
+        }
         # Read data only before acquisition. The verified core performs complete validation before writes.
-        $existingConfigPath = Join-Path $root 'SAF.config.json'
+        $existingConfigPath = Join-Path $root '.agents/saf/SAF.config.json'
         if ([IO.File]::Exists($existingConfigPath)) {
             $existingConfig = Read-BootJsonObject ([IO.File]::ReadAllBytes($existingConfigPath))
             if (-not $existingConfig.PSObject.Properties['schemaVersion'] -or
                 ($existingConfig.schemaVersion -isnot [int] -and $existingConfig.schemaVersion -isnot [long]) -or $existingConfig.schemaVersion -ne 2) {
-                throw 'SAF 2 requires SAF.config.json schema 2. Migrate the existing configuration first, then rerun the trusted scripts/init.ps1 bootstrap. The existing configuration is preserved.'
+                throw 'SAF 2 requires .agents/saf/SAF.config.json schema 2. Migrate the existing configuration first, then rerun the trusted scripts/init.ps1 bootstrap. The existing configuration is preserved.'
             }
             if ($existingConfig.PSObject.Properties['origin'] -and $existingConfig.origin) {
                 if (-not $Repository -and $existingConfig.origin.PSObject.Properties['repository']) { $Repository = $existingConfig.origin.repository }
                 if (-not $Ref -and $existingConfig.origin.PSObject.Properties['ref']) { $Ref = $existingConfig.origin.ref }
             }
         }
-        $existingStatePath = Join-Path $root 'SAF.lock.json'
+        $existingStatePath = Join-Path $root '.agents/saf/SAF.lock.json'
         if ([IO.File]::Exists($existingStatePath) -and (-not $Repository -or -not $Ref)) {
             $existingState = Read-BootJsonObject ([IO.File]::ReadAllBytes($existingStatePath))
             if ($existingState.schemaVersion -ne 1) { throw 'Unsupported SAF state.' }
@@ -80,7 +92,7 @@ foreach ($key in @('Repository', 'Ref')) {
                 if (-not $Ref) { $Ref = $existingSource.ref }
             }
         }
-        if (-not $Repository) { $Repository = 'https://github.com/Evigila/AGENTS.md.git' }
+        if (-not $Repository) { $Repository = 'https://github.com/Evigila/SAF.git' }
         if (-not $Ref) { $Ref = 'main' }
         if (-not $Repository -or $Repository.StartsWith('-') -or -not $Ref -or $Ref.StartsWith('-')) { throw 'Invalid bootstrap source or ref.' }
         $repositoryUri = $null
@@ -99,9 +111,9 @@ foreach ($key in @('Repository', 'Ref')) {
             $commit = Invoke-BootGit @('-C', $source, 'rev-parse', 'FETCH_HEAD^{commit}') -Text
         }
         if ($commit -notmatch '^[0-9a-f]{40}$') { throw 'Bootstrap must resolve one exact Git commit.' }
-        $manifest = Read-BootJsonObject (Read-BootBlob 'SAF.json')
+        $manifest = Read-BootJsonObject (Read-BootBlob '.agents/saf/SAF.json')
         if (($manifest.schemaVersion -isnot [int] -and $manifest.schemaVersion -isnot [long]) -or $manifest.schemaVersion -ne 1 -or
-            ($manifest.handlerProtocolVersion -isnot [int] -and $manifest.handlerProtocolVersion -isnot [long]) -or $manifest.handlerProtocolVersion -ne 3 -or
+            ($manifest.handlerProtocolVersion -isnot [int] -and $manifest.handlerProtocolVersion -isnot [long]) -or $manifest.handlerProtocolVersion -ne 4 -or
             -not $manifest.PSObject.Properties['configSupportVersion'] -or
             ($manifest.configSupportVersion -isnot [int] -and $manifest.configSupportVersion -isnot [long]) -or $manifest.configSupportVersion -ne 2) { throw 'Unsupported SAF 2 bootstrap manifest.' }
         # Validate without loading the acquired core, including when bootstrapping an older source.
@@ -110,7 +122,7 @@ foreach ($key in @('Repository', 'Ref')) {
         $numericVersion = $null
         if (-not $versionMatch.Success -or -not [version]::TryParse($versionMatch.Groups[1].Value, [ref]$numericVersion) -or
             $numericVersion -lt [version]'2.0.0') { throw 'Unsupported SAF 2 bootstrap version.' }
-        $handlers = @('origin.bat', 'local.bat', 'scripts/origin.ps1', 'scripts/local.ps1', 'scripts/saf-core.ps1')
+        $handlers = @('scripts/origin.bat', 'scripts/local.bat', 'scripts/origin.ps1', 'scripts/local.ps1', 'scripts/saf-core.ps1')
         if (@($manifest.bootstrapFiles).Count -ne 5 -or @(Compare-Object ($handlers | Sort-Object) (@($manifest.bootstrapFiles) | Sort-Object)).Count -ne 0) { throw 'Invalid bootstrap handler set.' }
         $payload = @{}
         foreach ($relative in $handlers) {
@@ -123,7 +135,7 @@ foreach ($key in @('Repository', 'Ref')) {
             if ($hash -ne $entries[0].sha256) { throw "Bootstrap hash mismatch: $relative" }
             $payload[$relative] = [pscustomobject]@{ bytes = $bytes; hash = $hash }
         }
-        $configEntries = @($manifest.files | Where-Object target -eq 'SAF.config.json')
+        $configEntries = @($manifest.files | Where-Object target -eq '.agents/saf/SAF.config.json')
         if ($configEntries.Count -ne 1 -or $configEntries[0].source -ne 'templates/SAF.config.json' -or $configEntries[0].mode -ne 'seed') { throw 'Missing neutral configuration seed.' }
         $configBytes = Read-BootBlob 'templates/SAF.config.json'
         $corePath = Join-Path $cache 'saf-core.ps1'
@@ -136,12 +148,12 @@ foreach ($key in @('Repository', 'Ref')) {
         Assert-SafConfigObject $seedConfig @('schemaVersion') 'config seed'
         if (($seedConfig.schemaVersion -isnot [int] -and $seedConfig.schemaVersion -isnot [long]) -or $seedConfig.schemaVersion -ne 2) { throw 'The neutral configuration seed must use numeric schemaVersion: 2.' }
         $config = Resolve-SafConfig -Root $root
-        foreach ($relative in ($handlers + @('SAF.lock.json'))) { Assert-SafWritable -Root $root -Relative $relative -Config $config }
+        foreach ($relative in ($handlers + @('.agents/saf/SAF.lock.json'))) { Assert-SafWritable -Root $root -Relative $relative -Config $config }
         $lease = Enter-SafOperation -Root $root
         [void](Move-SafLegacyStorage -Root $root)
         $state = Read-SafState -Root $root
-        $lockHash = Get-SafExistingHash (Get-SafTarget $root 'SAF.lock.json') -Raw
-        $backup = New-SafBackup -Root $root -RelativePaths ($handlers + @('SAF.config.json', 'SAF.lock.json', 'AGENTS.lock.json', 'AGENTS.ensure.json', '.gitignore')) -Reason 'init'
+        $lockHash = Get-SafExistingHash (Get-SafTarget $root '.agents/saf/SAF.lock.json') -Raw
+        $backup = New-SafBackup -Root $root -RelativePaths ($handlers + @('.agents/saf/SAF.config.json', '.agents/saf/SAF.lock.json', 'AGENTS.lock.json', 'AGENTS.ensure.json', '.gitignore')) -Reason 'init'
         $operations = New-Object 'Collections.Generic.List[object]'; $hashes = [ordered]@{}
         foreach ($relative in $handlers) {
             $target = Get-SafTarget $root $relative
@@ -150,13 +162,13 @@ foreach ($key in @('Repository', 'Ref')) {
         }
         $ignoreOperation = Get-SafRuntimeIgnoreOperation -Root $root
         if ($ignoreOperation) { $operations.Add($ignoreOperation) }
-        if ($null -eq $config.sourceHash) { $operations.Add([pscustomobject]@{ relative = 'SAF.config.json'; bytes = $configBytes; delete = $false; expected = $null }) }
-        $state.bootstrap = [pscustomobject]@{ handlerProtocolVersion = 3; configSupportVersion = 2; repository = $Repository; ref = $Ref; commit = $commit; managedFiles = [pscustomobject]$hashes }
-        $operations.Add([pscustomobject]@{ relative = 'SAF.lock.json'; bytes = ConvertTo-SafBytes $state; delete = $false; expected = $lockHash })
+        if ($null -eq $config.sourceHash) { $operations.Add([pscustomobject]@{ relative = '.agents/saf/SAF.config.json'; bytes = $configBytes; delete = $false; expected = $null }) }
+        $state.bootstrap = [pscustomobject]@{ handlerProtocolVersion = 4; configSupportVersion = 2; repository = $Repository; ref = $Ref; commit = $commit; managedFiles = [pscustomobject]$hashes }
+        $operations.Add([pscustomobject]@{ relative = '.agents/saf/SAF.lock.json'; bytes = ConvertTo-SafBytes $state; delete = $false; expected = $lockHash })
         Invoke-SafTransaction -Root $root -Operations $operations.ToArray()
         $result = 'initialized'
         Write-Host "[SAF] Handler set deployed. Recovery snapshot: $backup"
-        Write-Host '[SAF] Next: .\origin.bat -sync'
+        Write-Host '[SAF] Next: .\scripts\origin.bat -sync'
     } finally {
         if ($coreLoaded -and $root) { Write-SafLog -Root $root -Action 'init' -Result $result -ExitCode $(if ($result -eq 'initialized') { 0 } else { 1 }) -Data $null }
         if ($lease) { $lease.Dispose() }

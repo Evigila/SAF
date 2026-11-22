@@ -152,7 +152,7 @@ function Assert-ConfigRecovery([string[]]$BeforePaths, [string]$Root, [byte[]]$E
     $newBackups = @(Get-Backups $Root | Where-Object { $_.FullName -notin $BeforePaths })
     Assert-True ($newBackups.Count -gt 0) "$Message (no new recovery point)"
     foreach ($backup in $newBackups) {
-        $recoveryConfig = Join-Path $backup.FullName 'files/SAF.config.json'
+        $recoveryConfig = Join-Path $backup.FullName 'files/.agents/saf/SAF.config.json'
         Assert-True ([IO.File]::Exists($recoveryConfig)) "$Message (configuration missing from $($backup.Name))"
         Assert-Equal ([Convert]::ToBase64String($ExpectedBytes)) ([Convert]::ToBase64String([IO.File]::ReadAllBytes($recoveryConfig))) "$Message (configuration bytes changed)"
     }
@@ -180,8 +180,8 @@ try {
     $project = Join-Path $fixtureRoot 'consumer project'
     Initialize-Repository $source
     Initialize-Repository $project
-    $manifest = Read-Json (Join-Path $repositoryRoot 'SAF.json')
-    $sourceFiles = @(@($manifest.files | ForEach-Object { $_.source }) + @('SAF.json', 'scripts/init.ps1', 'scripts/publish-saf.ps1') | Select-Object -Unique)
+    $manifest = Read-Json (Join-Path $repositoryRoot '.agents/saf/SAF.json')
+    $sourceFiles = @(@($manifest.files | ForEach-Object { $_.source }) + @('.agents/saf/SAF.json', 'scripts/init.ps1', 'scripts/publish-saf.ps1') | Select-Object -Unique)
     foreach ($relative in $sourceFiles) {
         $destination = Join-Path $source $relative
         [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($destination))
@@ -189,7 +189,7 @@ try {
     }
     # The source repository's own preferences are deliberately different from the
     # neutral consumer seed. They must never leak through bootstrap or update.
-    Write-Json (Join-Path $source 'SAF.config.json') ([ordered]@{
+    Write-Json (Join-Path $source '.agents/saf/SAF.config.json') ([ordered]@{
         schemaVersion = 2; project = [ordered]@{ ui = [ordered]@{ framework = 'Source-only UI preferences must not leak' }; protectedPaths = @('source-private/') }
     })
     $initialCommit = Commit-Repository $source 'Initial SAF fixture release'
@@ -203,7 +203,16 @@ try {
     Assert-True (-not [IO.File]::Exists((Join-Path $project 'init.ps1'))) 'Bootstrap installed an unexpected root init script.'
     foreach ($relative in @($manifest.bootstrapFiles)) { Assert-True ([IO.File]::Exists((Join-Path $project $relative))) "Bootstrap omitted $relative" }
     Assert-True (-not [IO.File]::Exists((Join-Path $project 'AGENTS.md'))) 'Bootstrap unexpectedly installed the framework payload.'
-    $configPath = Join-Path $project 'SAF.config.json'
+    foreach ($relative in @('SAF.json', 'SAF.config.json', 'SAF.lock.json', 'origin.bat', 'local.bat')) {
+        Assert-True (-not (Test-Path -LiteralPath (Join-Path $project $relative))) "Bootstrap created an old root path: $relative"
+    }
+    $oldConfig = Join-Path $project 'SAF.config.json'
+    Write-Text $oldConfig '{"schemaVersion":2}'
+    $before = Get-Snapshot $project
+    Assert-Exit (Invoke-Script $init $initArguments) 1 'Bootstrap refuses a root configuration until the owner relocates it.'
+    Assert-Snapshot $before $project 'Layout refusal changed the project configuration or managed files.'
+    [IO.File]::Delete($oldConfig)
+    $configPath = Join-Path $project '.agents/saf/SAF.config.json'
     $seedConfig = Read-Json $configPath
     Assert-Equal 1 @($seedConfig.PSObject.Properties).Count 'Bootstrap copied source preferences instead of the neutral configuration seed.'
     Assert-Equal 2 $seedConfig.schemaVersion 'Bootstrap omitted the supported configuration schema.'
@@ -234,7 +243,7 @@ try {
     Assert-Equal 'ticket-prefixed short subjects' $customPreferences.project.commit.style 'A custom nonempty commit style string was not preserved.'
     Assert-Equal 'spanish imperative' $customPreferences.project.commit.initialStyle 'A custom initial commit style string was not preserved.'
     $consumerConfigBytes = [IO.File]::ReadAllBytes($configPath)
-    $lockPath = Join-Path $project 'SAF.lock.json'
+    $lockPath = Join-Path $project '.agents/saf/SAF.lock.json'
     $state = Read-Json $lockPath
     Assert-True ($null -eq $state.installation) 'Bootstrap falsely recorded a payload installation.'
     Assert-True ($null -eq $state.audit -or $null -eq $state.audit.lastCompletedAtUtc) 'Bootstrap copied a completed central audit.'
@@ -332,7 +341,7 @@ $script:Injected = $false
 $script:OriginalAtomic = (Get-Command Write-SafAtomic -CommandType Function).ScriptBlock
 $script:FirstPath = Join-Path $Root 'first.txt'
 $script:SecondPath = Join-Path $Root 'second.txt'
-$script:ConfigPath = Join-Path $Root 'SAF.config.json'
+$script:ConfigPath = Join-Path $Root '.agents/saf/SAF.config.json'
 $script:ExternalConfig = '{"schemaVersion":2,"project":{"protectedPaths":["second.txt"]}}'
 if ($Scenario -in @('DeleteRollback', 'DeleteRecreated')) { [IO.File]::WriteAllBytes($script:FirstPath, [byte[]]@()) }
 else { [IO.File]::WriteAllText($script:FirstPath, 'original first', $encoding) }
@@ -361,7 +370,10 @@ function Write-SafAtomic([string]$Path, [byte[]]$Bytes, [ValidateSet('Auto', 'Cr
             [IO.File]::WriteAllText($script:FirstPath, 'external first', $encoding)
         } else {
             [IO.File]::WriteAllText($script:SecondPath, 'external second', $encoding)
-            if ($script:ProbeScenario -eq 'Unwritten') { [IO.File]::WriteAllText($script:ConfigPath, $script:ExternalConfig, $encoding) }
+            if ($script:ProbeScenario -eq 'Unwritten') {
+                [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($script:ConfigPath))
+                [IO.File]::WriteAllText($script:ConfigPath, $script:ExternalConfig, $encoding)
+            }
         }
     }
 }
@@ -373,7 +385,7 @@ $operations = @(
     [pscustomobject]@{ relative = 'second.txt'; bytes = $encoding.GetBytes('transaction second'); delete = $false; expected = $secondExpected }
 )
 if ($Scenario -eq 'Unwritten') {
-    $operations += [pscustomobject]@{ relative = 'SAF.config.json'; bytes = $encoding.GetBytes('{"schemaVersion":2}'); delete = $false; expected = $null }
+    $operations += [pscustomobject]@{ relative = '.agents/saf/SAF.config.json'; bytes = $encoding.GetBytes('{"schemaVersion":2}'); delete = $false; expected = $null }
 }
 $aborted = $false
 try { Invoke-SafTransaction -Root $Root -Operations $operations } catch { $aborted = $true }
@@ -433,7 +445,7 @@ if ($Scenario -eq 'PrecommitSameBytes') {
     $baseVersion = [version]($manifest.frameworkVersion.Split('-')[0])
     $patchVersion = "$($baseVersion.Major).$($baseVersion.Minor).$($baseVersion.Build + 1)"
     $publisher = Join-Path $source 'scripts/publish-saf.ps1'
-    $manifestPath = Join-Path $source 'SAF.json'
+    $manifestPath = Join-Path $source '.agents/saf/SAF.json'
     $originalHash = Get-ByteHash ([IO.File]::ReadAllBytes($manifestPath))
     Assert-Exit (Invoke-Script $publisher @('-Version', $patchVersion)) 1 'Publisher rejects a bare patch version.'
     Assert-Exit (Invoke-Script $publisher @('-Version', "$($baseVersion.Major).$($baseVersion.Minor + 1).0-alpha.1")) 1 'Publisher requires approval for a minor increment.'
@@ -503,15 +515,15 @@ if ($Scenario -eq 'PrecommitSameBytes') {
     $before = Get-Snapshot $project
     Assert-Exit (Invoke-Origin @('-Check') $badSource) 1 'Payload hash mismatch is rejected before target writes.'
     Assert-Snapshot $before $project 'Invalid payload check changed consumer data.'
-    $badManifest = Read-Json (Join-Path $badSource 'SAF.json')
+    $badManifest = Read-Json (Join-Path $badSource '.agents/saf/SAF.json')
     $badManifest.handlerProtocolVersion = 99
-    Write-Json (Join-Path $badSource 'SAF.json') $badManifest
+    Write-Json (Join-Path $badSource '.agents/saf/SAF.json') $badManifest
     [void](Commit-Repository $badSource 'Incompatible handler fixture')
     Assert-Exit (Invoke-Origin @('-Check') $badSource) 4 'Unsupported handler protocol requests reinitialization.'
     Assert-Snapshot $before $project 'Incompatible handler check changed consumer data.'
-    $badManifest.handlerProtocolVersion = 3
+    $badManifest.handlerProtocolVersion = 4
     $badManifest.configSupportVersion = 99
-    Write-Json (Join-Path $badSource 'SAF.json') $badManifest
+    Write-Json (Join-Path $badSource '.agents/saf/SAF.json') $badManifest
     [void](Commit-Repository $badSource 'Incompatible configuration support fixture')
     Assert-Exit (Invoke-Origin @('-Check') $badSource) 4 'Unsupported configuration support requests compatible handlers.'
     Assert-Snapshot $before $project 'Incompatible configuration support changed consumer data.'
@@ -545,8 +557,8 @@ if ($Scenario -eq 'PrecommitSameBytes') {
     $shapeProject = Join-Path $fixtureRoot 'json root shape consumer'
     Initialize-Repository $shapeProject
     Assert-Exit (Invoke-Script $init @('-ProjectRoot', $shapeProject, '-SourcePath', $source, '-Repository', $source, '-Ref', 'main')) 0 'Prepare a handler-only consumer for release JSON-root checks.'
-    $shapeManifestPath = Join-Path $shapeSource 'SAF.json'
-    $objectManifestJson = [IO.File]::ReadAllText((Join-Path $source 'SAF.json'), $utf8)
+    $shapeManifestPath = Join-Path $shapeSource '.agents/saf/SAF.json'
+    $objectManifestJson = [IO.File]::ReadAllText((Join-Path $source '.agents/saf/SAF.json'), $utf8)
     foreach ($invalidManifestRoot in @(('[' + $objectManifestJson + ']'), '1', 'null', '"manifest"')) {
         Write-Text $shapeManifestPath $invalidManifestRoot
         [void](Commit-Repository $shapeSource 'Non-object release manifest root fixture')
@@ -558,8 +570,8 @@ if ($Scenario -eq 'PrecommitSameBytes') {
         Assert-Snapshot $before $shapeProject 'Bootstrap accepted an invalid manifest root.'
     }
     foreach ($invalidSeedRoot in @('[{"schemaVersion":2}]', '1', 'null', '"seed"')) {
-        $seedManifest = Read-Json (Join-Path $source 'SAF.json')
-        $seedEntry = @($seedManifest.files | Where-Object { $_.target -eq 'SAF.config.json' })[0]
+        $seedManifest = Read-Json (Join-Path $source '.agents/saf/SAF.json')
+        $seedEntry = @($seedManifest.files | Where-Object { $_.target -eq '.agents/saf/SAF.config.json' })[0]
         $seedEntry.sha256 = Get-ByteHash ($utf8.GetBytes($invalidSeedRoot))
         Write-Text (Join-Path $shapeSource 'templates/SAF.config.json') $invalidSeedRoot
         Write-Json $shapeManifestPath $seedManifest
@@ -574,9 +586,9 @@ if ($Scenario -eq 'PrecommitSameBytes') {
 
     $missingSeedSource = Join-Path $fixtureRoot 'missing seed source'
     [void](Invoke-Git @('-c', ('core.hooksPath=' + $emptyHooks), '-c', ('init.templateDir=' + $emptyHooks), 'clone', '--quiet', $source, $missingSeedSource))
-    $missingSeedManifest = Read-Json (Join-Path $missingSeedSource 'SAF.json')
+    $missingSeedManifest = Read-Json (Join-Path $missingSeedSource '.agents/saf/SAF.json')
     $missingSeedManifest.files = @($missingSeedManifest.files | Where-Object { $_.target -ne 'debug.bat' })
-    Write-Json (Join-Path $missingSeedSource 'SAF.json') $missingSeedManifest
+    Write-Json (Join-Path $missingSeedSource '.agents/saf/SAF.json') $missingSeedManifest
     [void](Commit-Repository $missingSeedSource 'Invalid missing debug seed fixture')
     Assert-Exit (Invoke-Script (Join-Path $missingSeedSource 'scripts/publish-saf.ps1') @('-Check')) 1 'Publisher rejects a manifest missing the required debug seed.'
     $legacyDebugProject = Join-Path $fixtureRoot 'legacy debug consumer'
@@ -589,27 +601,27 @@ if ($Scenario -eq 'PrecommitSameBytes') {
 
     $missingConfigSource = Join-Path $fixtureRoot 'missing configuration seed source'
     [void](Invoke-Git @('-c', ('core.hooksPath=' + $emptyHooks), '-c', ('init.templateDir=' + $emptyHooks), 'clone', '--quiet', $source, $missingConfigSource))
-    $missingConfigManifest = Read-Json (Join-Path $missingConfigSource 'SAF.json')
-    $missingConfigManifest.files = @($missingConfigManifest.files | Where-Object { $_.target -ne 'SAF.config.json' })
-    Write-Json (Join-Path $missingConfigSource 'SAF.json') $missingConfigManifest
+    $missingConfigManifest = Read-Json (Join-Path $missingConfigSource '.agents/saf/SAF.json')
+    $missingConfigManifest.files = @($missingConfigManifest.files | Where-Object { $_.target -ne '.agents/saf/SAF.config.json' })
+    Write-Json (Join-Path $missingConfigSource '.agents/saf/SAF.json') $missingConfigManifest
     [void](Commit-Repository $missingConfigSource 'Missing configuration seed fixture')
     Assert-Exit (Invoke-Script (Join-Path $missingConfigSource 'scripts/publish-saf.ps1') @('-Check')) 1 'Publisher rejects a release without the project configuration seed.'
     $before = Get-Snapshot $project
     Assert-Exit (Invoke-Origin @('-Update') $missingConfigSource) 1 'A release without the configuration seed cannot update the project.'
     Assert-Snapshot $before $project 'Missing configuration seed update changed project state.'
 
-    $badTemplateManifest = Read-Json (Join-Path $source 'SAF.json')
-    $badTemplateEntry = @($badTemplateManifest.files | Where-Object { $_.target -eq 'SAF.config.json' })[0]
-    $badTemplateEntry.source = 'SAF.config.json'
-    $sourcePreferenceText = [IO.File]::ReadAllText((Join-Path $missingConfigSource 'SAF.config.json'), $utf8).TrimStart([char]0xFEFF).Replace("`r`n", "`n")
+    $badTemplateManifest = Read-Json (Join-Path $source '.agents/saf/SAF.json')
+    $badTemplateEntry = @($badTemplateManifest.files | Where-Object { $_.target -eq '.agents/saf/SAF.config.json' })[0]
+    $badTemplateEntry.source = '.agents/saf/SAF.config.json'
+    $sourcePreferenceText = [IO.File]::ReadAllText((Join-Path $missingConfigSource '.agents/saf/SAF.config.json'), $utf8).TrimStart([char]0xFEFF).Replace("`r`n", "`n")
     $badTemplateEntry.sha256 = Get-ByteHash ($utf8.GetBytes($sourcePreferenceText))
-    Write-Json (Join-Path $missingConfigSource 'SAF.json') $badTemplateManifest
+    Write-Json (Join-Path $missingConfigSource '.agents/saf/SAF.json') $badTemplateManifest
     [void](Commit-Repository $missingConfigSource 'Invalid source-preference configuration seed fixture')
     Assert-Exit (Invoke-Script (Join-Path $missingConfigSource 'scripts/publish-saf.ps1') @('-Check')) 1 'Publisher rejects source project preferences masquerading as a consumer seed.'
     $neutralProject = Join-Path $fixtureRoot 'neutral seed consumer'
     Initialize-Repository $neutralProject
     Assert-Exit (Invoke-Script $init @('-ProjectRoot', $neutralProject, '-SourcePath', $source, '-Repository', $source, '-Ref', 'main')) 0 'Prepare a consumer for source-preference seed rejection.'
-    [IO.File]::Delete((Join-Path $neutralProject 'SAF.config.json'))
+    [IO.File]::Delete((Join-Path $neutralProject '.agents/saf/SAF.config.json'))
     $before = Get-Snapshot $neutralProject
     Assert-Exit (Invoke-Origin @('-Update') $missingConfigSource $neutralProject) 1 'Synchronization refuses to inject source preferences when consumer configuration is absent.'
     Assert-Snapshot $before $neutralProject 'An invalid configuration seed changed the consumer.'
@@ -620,19 +632,19 @@ if ($Scenario -eq 'PrecommitSameBytes') {
     $configOrigin = Join-Path $configProject 'scripts/origin.ps1'
     $configOriginArguments = @('-ProjectRoot', $configProject, '-SourcePath', $source)
     Assert-Exit (Invoke-Script $configOrigin ($configOriginArguments + @('-Sync'))) 0 'Unconfigured source selection retains the lock pin.'
-    Assert-Equal $initialCommit (Read-Json (Join-Path $configProject 'SAF.lock.json')).installation.ref 'An absent config preference reset the requested source pin.'
+    Assert-Equal $initialCommit (Read-Json (Join-Path $configProject '.agents/saf/SAF.lock.json')).installation.ref 'An absent config preference reset the requested source pin.'
     $configuredSource = [ordered]@{ schemaVersion = 2; origin = [ordered]@{ repository = $source; ref = 'main' } }
-    Write-Json (Join-Path $configProject 'SAF.config.json') $configuredSource
+    Write-Json (Join-Path $configProject '.agents/saf/SAF.config.json') $configuredSource
     Assert-Exit (Invoke-Script $configOrigin ($configOriginArguments + @('-Check'))) 2 'An explicit configuration ref takes precedence over the previous lock pin.'
     Assert-Exit (Invoke-Script $configOrigin ($configOriginArguments + @('-Sync'))) 0 'Sync applies the explicitly configured branch.'
-    Assert-Equal 'main' (Read-Json (Join-Path $configProject 'SAF.lock.json')).installation.ref 'Configured source ref was reset to the previous pin.'
+    Assert-Equal 'main' (Read-Json (Join-Path $configProject '.agents/saf/SAF.lock.json')).installation.ref 'Configured source ref was reset to the previous pin.'
     Assert-Exit (Invoke-Script $configOrigin ($configOriginArguments + @('-Check'))) 0 'Repeated calls keep the configured source selection.'
     $before = Get-Snapshot $configProject
     Assert-Exit (Invoke-Script $configOrigin ($configOriginArguments + @('-Check', '-Ref', $initialCommit))) 1 'An explicit command-line ref overrides the configured branch and preserves downgrade protection.'
     Assert-Snapshot $before $configProject 'Command-line source selection changed state during Check.'
 
     $installationJson = (Read-Json $lockPath).installation | ConvertTo-Json -Depth 40 -Compress
-    Write-Text (Join-Path $project 'origin.bat') '@echo broken handler'
+    Write-Text (Join-Path $project 'scripts/origin.bat') '@echo broken handler'
     Write-Text (Join-Path $project 'scripts/local.ps1') '# broken handler'
     Assert-Exit (Invoke-Script $init $initArguments) 0 'Reinitialization repairs the complete handler set.'
     $state = Read-Json $lockPath
@@ -652,7 +664,7 @@ if ($Scenario -eq 'PrecommitSameBytes') {
     Assert-Equal 1 $newBackups.Count 'Manual backup should produce one recovery point.'
     Assert-True ([IO.File]::Exists((Join-Path $newBackups[0].FullName 'inventory.json'))) 'Backup omitted its content inventory.'
     Assert-True ([IO.File]::Exists((Join-Path $newBackups[0].FullName 'files/docs-ai/current/consumer-memory.md'))) 'Backup omitted scoped consumer facts.'
-    Assert-True ([IO.File]::Exists((Join-Path $newBackups[0].FullName 'files/SAF.config.json'))) 'Backup omitted the project configuration.'
+    Assert-True ([IO.File]::Exists((Join-Path $newBackups[0].FullName 'files/.agents/saf/SAF.config.json'))) 'Backup omitted the project configuration.'
     Assert-True ([IO.File]::Exists((Join-Path $newBackups[0].FullName 'files/.agents/skills/consumer-skill/SKILL.md'))) 'Unified runtime storage caused backup to omit project skills.'
     Assert-True (-not [IO.Directory]::Exists((Join-Path $newBackups[0].FullName 'files/.agents/backup'))) 'Backup recursively included previous recovery points.'
     Assert-True (-not [IO.Directory]::Exists((Join-Path $newBackups[0].FullName 'files/.agents/saf_log'))) 'Backup recursively included command logs.'
@@ -674,8 +686,8 @@ if ($Scenario -eq 'PrecommitSameBytes') {
 
     $stateAncestorProject = Join-Path $fixtureRoot 'state ancestor consumer'
     Initialize-Repository $stateAncestorProject
-    Write-Json (Join-Path $stateAncestorProject 'SAF.config.json') ([ordered]@{
-        schemaVersion = 2; project = [ordered]@{ protectedPaths = @('.agents') }
+    Write-Json (Join-Path $stateAncestorProject '.agents/saf/SAF.config.json') ([ordered]@{
+        schemaVersion = 2; project = [ordered]@{ protectedPaths = @('.agents/saf/SAF.lock.json') }
     })
     $stateAncestorProbe = Join-Path $fixtureRoot 'state-ancestor-probe.ps1'
     Write-Text $stateAncestorProbe @'
@@ -690,11 +702,12 @@ try {
         auditedFrameworkVersion = $null; lastMissingMaterialAskedAtUtc = $null; lastCompletedAtUtc = $null
     })
 } catch { $refused = $true }
-if (-not $refused) { throw 'State writing ignored a protected missing operation-lock ancestor.' }
-if ([IO.Directory]::Exists((Join-Path $Root '.agents'))) { throw 'State writing created the protected operation-lock ancestor.' }
-if ([IO.File]::Exists((Join-Path $Root 'SAF.lock.json'))) { throw 'Refused state writing created a lock state file.' }
+if (-not $refused) { throw 'State writing ignored the protected relocated state file.' }
+$lease = Enter-SafOperation -Root $Root
+$lease.Dispose()
+if ([IO.File]::Exists((Join-Path $Root '.agents/saf/SAF.lock.json'))) { throw 'Refused state writing created a lock state file.' }
 '@
-    Assert-Exit (Invoke-Script $stateAncestorProbe @('-Root', $stateAncestorProject, '-Core', $core)) 0 'State writing refuses a protected missing coordination directory before creating files.'
+    Assert-Exit (Invoke-Script $stateAncestorProbe @('-Root', $stateAncestorProject, '-Core', $core)) 0 'State writing refuses a protected SAF lock file.'
     $downloads = Join-Path $fixtureRoot 'redirected downloads'
     [void][IO.Directory]::CreateDirectory($downloads)
     Assert-Exit (Invoke-Script $local ($localArguments + @('-CleanArquived', '-Destination', $downloads))) 0 'Archive export verifies content before cleaning the source.'
@@ -710,7 +723,7 @@ if ([IO.File]::Exists((Join-Path $Root 'SAF.lock.json'))) { throw 'Refused state
     } finally { $zip.Dispose() }
 
     if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) {
-        $batch = Join-Path $project 'origin.bat'
+        $batch = Join-Path $project 'scripts/origin.bat'
         $raw = '/d /s /c ""' + $batch + '" -check -SourcePath "' + $source + '" -Repository "' + $source + '" -Ref main"'
         Assert-Exit (Invoke-Process $env:ComSpec @() $raw) 0 'Installed BAT forwards explicit Check arguments and returns without waiting.'
         if ($PSVersionTable.PSEdition -eq 'Desktop') {
@@ -723,7 +736,7 @@ if ([IO.File]::Exists((Join-Path $Root 'SAF.lock.json'))) { throw 'Refused state
             $fallbackEnvironment = @{ PATH = $fallbackPath }
             Assert-Exit (Invoke-Process $env:ComSpec @() '/d /c where pwsh.exe' -Environment $fallbackEnvironment) 1 'The fallback child environment cannot resolve PowerShell 7.'
             Assert-Exit (Invoke-Process $env:ComSpec @() $raw -Environment $fallbackEnvironment) 0 'Origin BAT works with only Windows PowerShell 5.1 available.'
-            $localRaw = '/d /s /c ""' + (Join-Path $project 'local.bat') + '" -backup"'
+            $localRaw = '/d /s /c ""' + (Join-Path $project 'scripts/local.bat') + '" -backup"'
             Assert-Exit (Invoke-Process $env:ComSpec @() $localRaw -Environment $fallbackEnvironment) 0 'Local BAT backup works with only Windows PowerShell 5.1 available.'
             $debugRaw = '/d /s /c ""' + (Join-Path $source 'debug.bat') + '" -NonInteractive 0"'
             Assert-Exit (Invoke-Process $env:ComSpec @() $debugRaw -Environment $fallbackEnvironment) 0 'Debug BAT cancellation works with only Windows PowerShell 5.1 available.'
@@ -766,7 +779,7 @@ if ([IO.File]::Exists((Join-Path $Root 'SAF.lock.json'))) { throw 'Refused state
     Initialize-Repository $protectedLockProject
     $protectedLockInitArguments = @('-ProjectRoot', $protectedLockProject, '-SourcePath', $source, '-Repository', $source, '-Ref', 'main')
     Assert-Exit (Invoke-Script $init $protectedLockInitArguments) 0 'Prepare a consumer with a project-protected legacy operation lock.'
-    Write-Json (Join-Path $protectedLockProject 'SAF.config.json') ([ordered]@{
+    Write-Json (Join-Path $protectedLockProject '.agents/saf/SAF.config.json') ([ordered]@{
         schemaVersion = 2; project = [ordered]@{ protectedPaths = @('.agent/operation.lock') }
     })
     $protectedLegacyLock = Join-Path $protectedLockProject '.agent/operation.lock'
@@ -782,7 +795,7 @@ if ([IO.File]::Exists((Join-Path $Root 'SAF.lock.json'))) { throw 'Refused state
     Write-Text $newCollision 'Current conflicting evidence.'
     $oldCollisionHash = Get-ByteHash ([IO.File]::ReadAllBytes($oldCollision))
     $newCollisionHash = Get-ByteHash ([IO.File]::ReadAllBytes($newCollision))
-    $storageLock = Join-Path $storageProject 'SAF.lock.json'
+    $storageLock = Join-Path $storageProject '.agents/saf/SAF.lock.json'
     $storageLockHash = Get-ByteHash ([IO.File]::ReadAllBytes($storageLock))
     Assert-Exit (Invoke-Script $init $storageInitArguments) 1 'Conflicting backup destinations stop migration without choosing a winner.'
     Assert-Equal $oldCollisionHash (Get-ByteHash ([IO.File]::ReadAllBytes($oldCollision))) 'Backup conflict lost the legacy bytes.'
@@ -808,7 +821,7 @@ if ([IO.File]::Exists((Join-Path $Root 'SAF.lock.json'))) { throw 'Refused state
         } catch { Write-Host ('SKIP: Link creation unavailable: ' + $_.Exception.Message) }
         if ($createdLink) {
             $externalHash = Get-ByteHash ([IO.File]::ReadAllBytes((Join-Path $externalStore 'external.md')))
-            $linkedLockPath = Join-Path $linkedProject 'SAF.lock.json'
+            $linkedLockPath = Join-Path $linkedProject '.agents/saf/SAF.lock.json'
             $linkedLockHash = Get-ByteHash ([IO.File]::ReadAllBytes($linkedLockPath))
             Assert-Exit (Invoke-Script $init $linkedInitArguments) 1 'Linked legacy runtime storage is refused before migration.'
             Assert-Equal $externalHash (Get-ByteHash ([IO.File]::ReadAllBytes((Join-Path $externalStore 'external.md')))) 'Migration changed external linked storage.'
@@ -823,7 +836,7 @@ if ([IO.File]::Exists((Join-Path $Root 'SAF.lock.json'))) { throw 'Refused state
     Write-Json (Join-Path $legacyProject 'AGENTS.ensure.json') $legacyAudit
     Write-Json (Join-Path $legacyProject 'AGENTS.lock.json') $legacyLock
     Assert-Exit (Invoke-Script $init @('-ProjectRoot', $legacyProject, '-SourcePath', $source, '-Repository', $source, '-Ref', 'main')) 0 'Bootstrap imports legacy installation and audit evidence.'
-    $legacyState = Read-Json (Join-Path $legacyProject 'SAF.lock.json')
+    $legacyState = Read-Json (Join-Path $legacyProject '.agents/saf/SAF.lock.json')
     Assert-Equal '1.2.1' $legacyState.installation.frameworkVersion 'Legacy installation baseline was lost.'
     Assert-Equal '2026-10-10T23:31:11Z' $legacyState.audit.lastCompletedAtUtc 'Legacy audit evidence was falsely refreshed or lost.'
 

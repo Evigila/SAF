@@ -36,7 +36,7 @@ SAF (Simple Agent Framework) 是一个简易的注入型agent框架，适用于�
 curl.exe -fL "https://raw.githubusercontent.com/Evigila/SAF/main/scripts/init.ps1" -o "$env:TEMP\saf-init.ps1"
 if ($LASTEXITCODE -eq 0) {
     powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\saf-init.ps1" -ProjectRoot "$PWD"
-    if ($LASTEXITCODE -eq 0) { .\origin.bat -sync }
+    if ($LASTEXITCODE -eq 0) { .\scripts\origin.bat -sync }
 }
 ```
 
@@ -45,11 +45,11 @@ if ($LASTEXITCODE -eq 0) {
 | 路径 | 描述 |
 | --- | --- |
 | `AGENTS.md` `docs-ai/common/` | 入口和通用标准 |
-| `SAF.json` | SAF控制（请勿修改） |
-| `SAF.config.json` | 项目个性化配置 |
-| `SAF.lock.json` | SAF控制（请勿修改） |
+| `.agents/saf/SAF.json` | SAF控制（请勿修改） |
+| `.agents/saf/SAF.config.json` | 项目个性化配置 |
+| `.agents/saf/SAF.lock.json` | SAF控制（请勿修改） |
 | `.agents/skills/` | 技能 |
-| `origin.bat` `local.bat` `scripts/` | 远程和本地脚本 |
+| `scripts/origin.bat` `scripts/local.bat` `scripts/` | 远程和本地脚本 |
 | `debug.bat` | 适用于项目的集中调试入口 |
 | `docs-ai/current/` | 当前项目的ai文档入口，适用于ai，默认情况下，ai仅被授权在此处编辑 |
 | `docs/` | 当前项目的文档入口，面向人类，ai在此处只读，你应该手动维护这里的文档 |
@@ -71,12 +71,12 @@ if ($LASTEXITCODE -eq 0) {
 
 | 命令 | 行为 |
 | --- | --- |
-| `.\origin.bat -check` | 检查远端的版本 |
-| `.\origin.bat -update` | 更新到新版本 |
-| `.\origin.bat -sync` | 先 Check，可用时 Update |
-| `.\origin.bat -update -force` | 先备份，再用远端版本覆盖本地文件 |
+| `.\scripts\origin.bat -check` | 检查远端的版本 |
+| `.\scripts\origin.bat -update` | 更新到新版本 |
+| `.\scripts\origin.bat -sync` | 先 Check，可用时 Update |
+| `.\scripts\origin.bat -update -force` | 先备份，再用远端版本覆盖本地文件 |
 
-双击origin.bat时默认调用`.\origin.bat -sync`
+双击scripts/origin.bat时默认调用`.\scripts\origin.bat -sync`
 
 退出码：`0` 成功，`1` 错误，`2` Check 发现更新，`3` 本地冲突，`4` 需要更新初始化处理器。
 
@@ -84,9 +84,9 @@ if ($LASTEXITCODE -eq 0) {
 
 | 命令 | 行为 |
 | --- | --- |
-| `.\local.bat -backup` | 将框架，配置，状态，AI 文档和技能备份到 `.agents/backup/`，不包含完整项目源码 |
-| `.\local.bat -clean-arquived` | 将 `docs-ai/current/1_archived/` 导出为ZIP到默认用户下载目录，可用 `-Destination` 指定输出位置 |
-| `.\local.bat -no-arquived` | 追加归档项忽略规则。已跟踪内容需要你自行处理 |
+| `.\scripts\local.bat -backup` | 将框架，配置，状态，AI 文档和技能备份到 `.agents/backup/`，不包含完整项目源码 |
+| `.\scripts\local.bat -clean-arquived` | 将 `docs-ai/current/1_archived/` 导出为ZIP到默认用户下载目录，可用 `-Destination` 指定输出位置 |
+| `.\scripts\local.bat -no-arquived` | 追加归档项忽略规则。已跟踪内容需要你自行处理 |
 
 ## AI辅助
 

@@ -1,6 +1,6 @@
 # Project instruction router
 
-This file is the project instruction entry point. Read the project-owned `SAF.config.json` under the [configuration contract](docs-ai/common/rules.md#project-configuration), inspect `SAF.lock.json` and the effective release in `SAF.json`, then follow the [audit gate](docs-ai/common/rules.md#audit-gate). The periodic audit checks SAF framework files and required structure, not application code or project facts. `SKIP_AUDIT` skips only that audit; it never skips this router, configuration restrictions, or applicable task rules.
+This file is the project instruction entry point. Read the project-owned `.agents/saf/SAF.config.json` under the [configuration contract](docs-ai/common/rules.md#project-configuration), inspect `.agents/saf/SAF.lock.json` and the effective release in `.agents/saf/SAF.json`, then follow the [audit gate](docs-ai/common/rules.md#audit-gate). The periodic audit checks SAF framework files and required structure, not application code or project facts. `SKIP_AUDIT` skips only that audit; it never skips this router, configuration restrictions, or applicable task rules.
 
 ## Read for the task
 
@@ -35,9 +35,9 @@ Add reading when scope changes. Read relevant sections and affected subtrees; do
 | `docs-ai/current/1_changelogs/` | Append-only change records |
 | `docs-ai/current/1_bugreports/` | Diagnosis, fixes, and regression evidence |
 | `docs-ai/current/1_archived/` | Superseded or abandoned designs; no authority over new work |
-| `SAF.json` | Release-owned version and payload inventory |
-| `SAF.config.json` | Project-owned typed values and restrictions; data consumed through the existing entry point, not another instruction authority |
-| `SAF.lock.json` | Project-owned bootstrap/installation provenance and independent audit state |
+| `.agents/saf/SAF.json` | Release-owned version and payload inventory |
+| `.agents/saf/SAF.config.json` | Project-owned typed values and restrictions; data consumed through the existing entry point, not another instruction authority |
+| `.agents/saf/SAF.lock.json` | Project-owned bootstrap/installation provenance and independent audit state |
 | `.agents/backup/`, `.agents/saf_log/`, `.agents/operation.lock` | Local recovery, logs, and coordination; distinct from `.agents/skills/` discovery |
 
 Keep this router and `docs-ai/` under version control. Preserve project facts and audit evidence during updates. New consumers start with an unaudited SAF structure; never import the source repository's completed audit. Project facts are maintained from actual evidence during relevant project work, separately from the SAF structural audit. Active standards contain no dated approval history or superseded policy.

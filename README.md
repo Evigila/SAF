@@ -36,7 +36,7 @@ Run following command at the target **Git repo**:
 curl.exe -fL "https://raw.githubusercontent.com/Evigila/SAF/main/scripts/init.ps1" -o "$env:TEMP\saf-init.ps1"
 if ($LASTEXITCODE -eq 0) {
     powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\saf-init.ps1" -ProjectRoot "$PWD"
-    if ($LASTEXITCODE -eq 0) { .\origin.bat -sync }
+    if ($LASTEXITCODE -eq 0) { .\scripts\origin.bat -sync }
 }
 ```
 
@@ -45,11 +45,11 @@ if ($LASTEXITCODE -eq 0) {
 | Path | Description |
 | --- | --- |
 | `AGENTS.md` `docs-ai/common/` | Entry point and shared standards |
-| `SAF.json` | SAF-control (do not modify) |
-| `SAF.config.json` | Project-specific configuration |
-| `SAF.lock.json` | SAF-control (do not modify) |
+| `.agents/saf/SAF.json` | SAF-control (do not modify) |
+| `.agents/saf/SAF.config.json` | Project-specific configuration |
+| `.agents/saf/SAF.lock.json` | SAF-control (do not modify) |
 | `.agents/skills/` | Skills |
-| `origin.bat` `local.bat` `scripts/` | Remote and local scripts |
+| `scripts/origin.bat` `scripts/local.bat` `scripts/` | Remote and local scripts |
 | `debug.bat` | Centralized debugging bat for the project |
 | `docs-ai/current/` | The current project's AI documentation, intended for AI, by default, **AI is only authorized to edit here** |
 | `docs/` | The current project's documentation for humans, **AI has read-only access here**, and you should maintain these documents manually |
@@ -71,12 +71,12 @@ if ($LASTEXITCODE -eq 0) {
 
 | Command | Behavior |
 | --- | --- |
-| `.\origin.bat -check` | Check the remote version |
-| `.\origin.bat -update` | Update to a new version |
-| `.\origin.bat -sync` | Check first, Update when available |
-| `.\origin.bat -update -force` | Back up first, then overwrite local files with the remote version |
+| `.\scripts\origin.bat -check` | Check the remote version |
+| `.\scripts\origin.bat -update` | Update to a new version |
+| `.\scripts\origin.bat -sync` | Check first, Update when available |
+| `.\scripts\origin.bat -update -force` | Back up first, then overwrite local files with the remote version |
 
-Double-clicking origin.bat runs `.\origin.bat -sync` by default.
+Double-clicking scripts/origin.bat runs `.\scripts\origin.bat -sync` by default.
 
 Exit codes: `0` success, `1` error, `2` Check found an update, `3` local conflict, `4` bootstrap handlers need updating.
 
@@ -84,9 +84,9 @@ Exit codes: `0` success, `1` error, `2` Check found an update, `3` local conflic
 
 | Command | Behavior |
 | --- | --- |
-| `.\local.bat -backup` | Back up the framework, configuration, state, AI documents, and skills to `.agents/backup/`, the project source is not included |
-| `.\local.bat -clean-arquived` | Export `docs-ai/current/1_archived/` as a ZIP to the user's default Downloads folder, use `-Destination` to specify the output location |
-| `.\local.bat -no-arquived` | Append archive ignore rules in .gitignore. You have to handle already tracked content |
+| `.\scripts\local.bat -backup` | Back up the framework, configuration, state, AI documents, and skills to `.agents/backup/`, the project source is not included |
+| `.\scripts\local.bat -clean-arquived` | Export `docs-ai/current/1_archived/` as a ZIP to the user's default Downloads folder, use `-Destination` to specify the output location |
+| `.\scripts\local.bat -no-arquived` | Append archive ignore rules in .gitignore. You have to handle already tracked content |
 
 ## AI assistance
 
