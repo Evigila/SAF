@@ -2,11 +2,14 @@
 [CmdletBinding(DefaultParameterSetName = 'Check')]
 param(
     [Parameter(ParameterSetName = 'Check')][switch]$Check,
-    [Parameter(Mandatory, ParameterSetName = 'Publish')][string]$Version
+    [Parameter(Mandatory, ParameterSetName = 'Publish')][string]$Version,
+    [Parameter(ParameterSetName = 'Publish')][switch]$ReleaseApproved,
+    [Parameter(ParameterSetName = 'Publish')][switch]$MajorMinorApproved
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'saf-core.ps1')
 $root = Split-Path -Parent $PSScriptRoot
 $utf8 = New-Object Text.UTF8Encoding($false, $true)
 function Read-PublishJsonObject([byte[]]$Bytes) {
@@ -31,14 +34,21 @@ function Assert-ManifestPath([string]$Relative) {
 }
 
 if (($manifest.schemaVersion -isnot [int] -and $manifest.schemaVersion -isnot [long]) -or $manifest.schemaVersion -ne 1 -or
-    $manifest.frameworkVersion -notmatch '^\d+\.\d+\.\d+$' -or
-    [version]$manifest.frameworkVersion -lt [version]'2.0.0' -or $manifest.handlerProtocolVersion -ne 3 -or
+    $manifest.handlerProtocolVersion -ne 3 -or
     ($manifest.handlerProtocolVersion -isnot [int] -and $manifest.handlerProtocolVersion -isnot [long]) -or
     -not $manifest.PSObject.Properties['configSupportVersion'] -or
     ($manifest.configSupportVersion -isnot [int] -and $manifest.configSupportVersion -isnot [long]) -or
     $manifest.configSupportVersion -ne 2) { throw 'Unsupported SAF 2 release manifest.' }
-if (-not $Check -and ($Version -notmatch '^\d+\.\d+\.\d+$' -or [version]$Version -le [version]$manifest.frameworkVersion)) {
-    throw 'Publishing requires a strictly greater stable major.minor.patch version.'
+$currentVersion = ConvertTo-SafReleaseVersion $manifest.frameworkVersion -AllowLegacy
+if ($currentVersion.Number -lt [version]'2.0.0') { throw 'Expected a SAF 2 release with numeric base >= 2.0.0.' }
+if (-not $Check) {
+    $candidate = ConvertTo-SafReleaseVersion $Version
+    if ((Compare-SafReleaseVersion $candidate $currentVersion) -le 0) { throw 'The proposed version must advance the current release.' }
+    if (($candidate.Number.Major -ne $currentVersion.Number.Major -or $candidate.Number.Minor -ne $currentVersion.Number.Minor) -and
+        -not $MajorMinorApproved) { throw 'Ask the user to approve the major/minor change before supplying -MajorMinorApproved.' }
+    if ($candidate.Channel -eq 'release' -and -not $ReleaseApproved) {
+        throw 'Ask the user to approve the release channel before supplying -ReleaseApproved.'
+    }
 }
 $targets = @{}
 $changed = New-Object 'System.Collections.Generic.List[string]'
@@ -94,7 +104,6 @@ if ($Check) {
     Write-Host "SAF $($manifest.frameworkVersion) manifest and payload hashes verified."
     return
 }
-. (Join-Path $PSScriptRoot 'saf-core.ps1')
 $config = Resolve-SafConfig -Root $root
 Assert-SafWritable -Root $root -Relative 'SAF.json' -Config $config
 $manifest.frameworkVersion = $Version
@@ -103,4 +112,4 @@ try {
     [IO.File]::WriteAllText($temporary, ($manifest | ConvertTo-Json -Depth 30) + "`n", $utf8)
     [IO.File]::Replace($temporary, $path, [NullString]::Value)
 } finally { if ([IO.File]::Exists($temporary)) { [IO.File]::Delete($temporary) } }
-Write-Host "Prepared SAF $Version. Review the diff and run the manual acceptance checks before publishing."
+Write-Host "Prepared SAF $Version. Review the diff and obtain confirmation of the release copy before committing or publishing."

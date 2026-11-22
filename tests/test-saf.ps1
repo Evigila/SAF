@@ -430,9 +430,18 @@ if ($Scenario -eq 'PrecommitSameBytes') {
 
     $rulesSource = Join-Path $source 'docs-ai/common/rules.md'
     Write-Text $rulesSource ([IO.File]::ReadAllText($rulesSource, $utf8) + "`n<!-- Fixture release change. -->`n")
-    $baseVersion = [version]$manifest.frameworkVersion
-    $nextVersion = $baseVersion.Major.ToString() + '.' + ($baseVersion.Minor + 1).ToString() + '.0'
-    Assert-Exit (Invoke-Script (Join-Path $source 'scripts/publish-saf.ps1') @('-Version', $nextVersion)) 0 'Publisher requires and prepares a higher release version.'
+    $baseVersion = [version]($manifest.frameworkVersion.Split('-')[0])
+    $patchVersion = "$($baseVersion.Major).$($baseVersion.Minor).$($baseVersion.Build + 1)"
+    $publisher = Join-Path $source 'scripts/publish-saf.ps1'
+    $manifestPath = Join-Path $source 'SAF.json'
+    $originalHash = Get-ByteHash ([IO.File]::ReadAllBytes($manifestPath))
+    Assert-Exit (Invoke-Script $publisher @('-Version', $patchVersion)) 1 'Publisher rejects a bare patch version.'
+    Assert-Exit (Invoke-Script $publisher @('-Version', "$($baseVersion.Major).$($baseVersion.Minor + 1).0-alpha.1")) 1 'Publisher requires approval for a minor increment.'
+    Assert-Exit (Invoke-Script $publisher @('-Version', "$($baseVersion.Major + 1).0.0-beta.1")) 1 'Publisher requires approval for a major increment.'
+    Assert-Exit (Invoke-Script $publisher @('-Version', "$patchVersion-release")) 1 'Publisher requires approval for the release channel.'
+    Assert-Equal $originalHash (Get-ByteHash ([IO.File]::ReadAllBytes($manifestPath))) 'Refused publication changed the source manifest.'
+    $nextVersion = "$patchVersion-alpha.2"
+    Assert-Exit (Invoke-Script $publisher @('-Version', $nextVersion)) 0 'Publisher prepares the next patch alpha without exceptional approval.'
     $nextCommit = Commit-Repository $source 'Compatible fixture upgrade'
     Assert-Exit (Invoke-Origin @('-Check')) 2 'Check detects the new release.'
     foreach ($protectedPath in @('docs-ai/common/rules.md', 'docs-ai/common/')) {
@@ -449,6 +458,9 @@ if ($Scenario -eq 'PrecommitSameBytes') {
     Assert-ConfigRecovery $syncBackupsBefore $project $consumerConfigBytes 'Compatible synchronization recovery includes exact project configuration.'
     $state = Read-Json $lockPath
     Assert-Equal $nextCommit $state.installation.commit 'Upgrade lost the resolved source commit.'
+    Assert-Equal $nextVersion $state.installation.frameworkVersion 'Upgrade lost the release channel or iteration.'
+    $downgradeArgs = @('-ProjectRoot', $project, '-SourcePath', $source, '-Repository', $source, '-Ref', $initialCommit, '-Check')
+    Assert-Exit (Invoke-Script (Join-Path $project 'scripts/origin.ps1') $downgradeArgs) 1 'Check rejects a downgrade from a suffixed version.'
     Assert-Equal $auditJson ($state.audit | ConvertTo-Json -Compress) 'Upgrade rewrote audit evidence.'
     Assert-Equal (Get-ByteHash $consumerConfigBytes) (Get-ByteHash ([IO.File]::ReadAllBytes($configPath))) 'Update overwrote consumer configuration.'
     Assert-GitState $gitState $project
@@ -465,8 +477,8 @@ if ($Scenario -eq 'PrecommitSameBytes') {
     [void](Commit-Repository $project 'Committed managed customization')
     $gitState = Get-GitState $project
     Write-Text $rulesSource ([IO.File]::ReadAllText($rulesSource, $utf8) + "`n<!-- Second fixture release change. -->`n")
-    $forceVersion = $baseVersion.Major.ToString() + '.' + ($baseVersion.Minor + 2).ToString() + '.0'
-    Assert-Exit (Invoke-Script (Join-Path $source 'scripts/publish-saf.ps1') @('-Version', $forceVersion)) 0 'Publisher prepares a second compatible fixture upgrade.'
+    $forceVersion = "$patchVersion-alpha.10"
+    Assert-Exit (Invoke-Script $publisher @('-Version', $forceVersion)) 0 'Publisher compares alpha iterations numerically within the same patch.'
     [void](Commit-Repository $source 'Conflicting fixture upgrade')
     $before = Get-Snapshot $project
     Assert-Exit (Invoke-Origin @('-Check')) 3 'Check identifies committed managed customizations.'

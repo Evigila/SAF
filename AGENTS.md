@@ -10,6 +10,7 @@ This file is the project instruction entry point. Read the project-owned `SAF.co
 | Code, project, namespace, or public API changes | Relevant [code standards](docs-ai/common/codedesign.md), affected source, and repository configuration |
 | UI or UX work | [UIUX.md](docs-ai/common/UIUX.md), then the project's actual components, styles, contracts, and host usage |
 | Repository structure or architecture | [1_architecture.md](docs-ai/current/1_architecture.md), then affected source/configuration |
+| Selecting a project version, preparing release copy, tagging, or publishing | [Release versioning and approvals](docs-ai/common/rules.md#release-versioning-and-approvals) and [prepare-release](.agents/skills/prepare-release/SKILL.md) |
 | Project scripts, debugging, data resets, or publication | [Project scripts and entry points](docs-ai/common/rules.md#project-scripts-and-entry-points), then affected scripts and configuration |
 | Dependencies, assets, build, or deployment | [External dependencies](docs-ai/common/rules.md#external-dependencies), [1_dependency.md](docs-ai/current/1_dependency.md), declarations, and resolved evidence |
 | Documentation creation, restructuring, or SAF audit | [Documentation contract](docs-ai/common/rules.md#documentation-contract) and [SAF structural audit](docs-ai/common/rules.md#saf-structural-audit) |

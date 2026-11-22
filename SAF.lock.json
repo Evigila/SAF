@@ -3,8 +3,8 @@
   "bootstrap": null,
   "installation": null,
   "audit": {
-    "auditedFrameworkVersion": "2.0.0",
-    "lastCompletedAtUtc": "2026-11-13T14:36:34Z",
+    "auditedFrameworkVersion": "2.0.1-alpha.1",
+    "lastCompletedAtUtc": "2026-11-22T21:54:17.4079408Z",
     "lastMissingMaterialAskedAtUtc": null
   }
 }

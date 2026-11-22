@@ -103,8 +103,13 @@ foreach ($key in @('Repository', 'Ref')) {
         if (($manifest.schemaVersion -isnot [int] -and $manifest.schemaVersion -isnot [long]) -or $manifest.schemaVersion -ne 1 -or
             ($manifest.handlerProtocolVersion -isnot [int] -and $manifest.handlerProtocolVersion -isnot [long]) -or $manifest.handlerProtocolVersion -ne 3 -or
             -not $manifest.PSObject.Properties['configSupportVersion'] -or
-            ($manifest.configSupportVersion -isnot [int] -and $manifest.configSupportVersion -isnot [long]) -or $manifest.configSupportVersion -ne 2 -or
-            $manifest.frameworkVersion -notmatch '^\d+\.\d+\.\d+$' -or [version]$manifest.frameworkVersion -lt [version]'2.0.0') { throw 'Unsupported SAF 2 bootstrap manifest.' }
+            ($manifest.configSupportVersion -isnot [int] -and $manifest.configSupportVersion -isnot [long]) -or $manifest.configSupportVersion -ne 2) { throw 'Unsupported SAF 2 bootstrap manifest.' }
+        # Validate without loading the acquired core, including when bootstrapping an older source.
+        $versionPattern = '\A((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))(?:-(?:(?:alpha|beta)(?:\.[1-9][0-9]*)?|release))?\z'
+        $versionMatch = [regex]::Match([string]$manifest.frameworkVersion, $versionPattern)
+        $numericVersion = $null
+        if (-not $versionMatch.Success -or -not [version]::TryParse($versionMatch.Groups[1].Value, [ref]$numericVersion) -or
+            $numericVersion -lt [version]'2.0.0') { throw 'Unsupported SAF 2 bootstrap version.' }
         $handlers = @('origin.bat', 'local.bat', 'scripts/origin.ps1', 'scripts/local.ps1', 'scripts/saf-core.ps1')
         if (@($manifest.bootstrapFiles).Count -ne 5 -or @(Compare-Object ($handlers | Sort-Object) (@($manifest.bootstrapFiles) | Sort-Object)).Count -ne 0) { throw 'Invalid bootstrap handler set.' }
         $payload = @{}

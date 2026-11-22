@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "frameworkVersion": "2.0.0",
+  "frameworkVersion": "2.0.1-alpha.1",
   "handlerProtocolVersion": 3,
   "repository": "Evigila/AGENTS.md",
   "bootstrapFiles": [
@@ -15,7 +15,7 @@
       "source": "AGENTS.md",
       "target": "AGENTS.md",
       "mode": "managed",
-      "sha256": "92f5c80cb65e2248b3daef62aed0c8dcca95560e9d5ed09fd833c7df6bca7de9"
+      "sha256": "2dec6925d701e14e28e39ec2820a11ab809fe9d332ae5638677e5223ba5e257d"
     },
     {
       "source": "debug.bat",
@@ -27,7 +27,7 @@
       "source": "docs-ai/common/rules.md",
       "target": "docs-ai/common/rules.md",
       "mode": "managed",
-      "sha256": "71bcd255b9af81ca6564babbc554d836706914531cced9249351325708186650"
+      "sha256": "78918f938a3e8a5416a6f81efdf37bda64e198178143df1029ed1e76546bb9ca"
     },
     {
       "source": "docs-ai/common/codedesign.md",
@@ -105,7 +105,7 @@
       "source": "scripts/origin.ps1",
       "target": "scripts/origin.ps1",
       "mode": "managed",
-      "sha256": "7059b278e8037e7021b9e48920ba07ae94cfd567560ed2c98dec917e9a736fbe"
+      "sha256": "f7c5faea067799b82646e42a8afa992f4ad7ded5c0d4c439a79a0eee747cb30d"
     },
     {
       "source": "scripts/local.ps1",
@@ -117,13 +117,13 @@
       "source": "scripts/saf-core.ps1",
       "target": "scripts/saf-core.ps1",
       "mode": "managed",
-      "sha256": "84726fc1af94191f3a6d7b7237e83fa4705aa8b091041c5b9ad2a2f2db6bffa7"
+      "sha256": "6d3b53f44b7aac14fdf3eb1bdbe6cc13b1a33669dcb72c1f0cae06bc27cdea45"
     },
     {
       "source": ".agents/skills/sync-saf/SKILL.md",
       "target": ".agents/skills/sync-saf/SKILL.md",
       "mode": "managed",
-      "sha256": "8022261ffe5e42c1dff0c294f9d9b40e64739324f8bd4a6575bea4f14612bffc"
+      "sha256": "faa101ccf4738a13a272113227ce1c724ca848c0e98a45aaafa2a6b6fdb5cc16"
     },
     {
       "source": ".agents/skills/sync-saf/agents/openai.yaml",
@@ -142,6 +142,12 @@
       "target": ".agents/skills/compress-saf/agents/openai.yaml",
       "mode": "managed",
       "sha256": "a55afde8773ce9c9b05ca0727eb990d789de0b8c7d20099acf626223cb3acfb5"
+    },
+    {
+      "source": ".agents/skills/prepare-release/SKILL.md",
+      "target": ".agents/skills/prepare-release/SKILL.md",
+      "mode": "managed",
+      "sha256": "1fefa37e2aa2691b572c7d292c9e1c33ddd0e7fe31e3f4d6f8bfe5a4aa0bd969"
     },
     {
       "source": "templates/SAF.config.json",

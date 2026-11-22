@@ -52,6 +52,10 @@ The lock has schema version 1 with independent `bootstrap`, `installation`, and 
 
 Transactions retain a single-read before-image/raw hash per target, recheck it before mutation, and select atomic Create/Replace from expected existence rather than current fallback behavior. Deletion creates no parent directories. The helper reports commitment before a later exception; reverse recovery skips uncommitted paths and touches only still-matching operation results, under both the original and current protection sets. Unexpected external bytes or unavailable policy/path safety cause warnings/manual recovery. Restoring a deleted file cannot replace a newly appeared target. Commit receipts and hash comparisons narrow ownership without providing filesystem-wide isolation.
 
+## Release preparation
+
+SAF resolves new suffixed framework versions in numeric base, channel and iteration order. The preparation script checks the requested version and any applicable channel or major/minor approval before writing hashes and the version to the local manifest. Git commits, tags and publication are separate operations requiring confirmation of the release copy. The updated handlers read existing numeric SAF versions. Consumers running 2.0.0 must refresh the handlers through the trusted `scripts/init.ps1` before their first synchronization to a suffixed version.
+
 ## Local maintenance and memory
 
 Manual snapshots live under `.agents/backup/` and contain scoped handlers/state/config, `.gitignore`, AI documents, and skills with exact-byte inventories/hashes. This is SAF recovery, not a full source or human-document backup. Logs use `.agents/saf_log/`; operation leases use `.agents/operation.lock`. These runtime subdirectories are distinct from `.agents/skills/` discovery even though they share one root. Writes preserve/migrate legacy `.agent/` storage; Check only appends a current log and never migrates data. Backups exclude old/new runtime storage so snapshots do not recursively contain themselves.

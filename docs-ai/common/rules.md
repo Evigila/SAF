@@ -126,7 +126,7 @@ Create authorized missing SAF structural directories, empty markers, and project
 
 Use existing Git, Windows CMD, Windows PowerShell 5.1, or already available PowerShell 7. Do not install an application, global CLI, package, service, or runtime, modify PATH/global Git configuration, or permanently change execution policy. Windows BAT interfaces do not imply cross-platform entry points.
 
-`SAF.json` defines a stable `major.minor.patch` release, handler contract, and exact source/target/mode/normalized SHA-256 inventory. SAF source maintainers bump the release when the distributed payload/manifest changes. Consumer-local customization preserves the installed release identity and conflict baselines; it does not authorize preparing a framework release or rewriting installation evidence. The manifest does not hash itself; installation state records its digest and source commit. Source-only documentation commits are not automatically framework payload updates.
+`SAF.json` defines a `major.minor.patch-suffix` release, handler contract, and exact source/target/mode/normalized SHA-256 inventory. SAF source maintainers bump the release when the distributed payload/manifest changes. Consumer-local customization preserves the installed release identity and conflict baselines; it does not authorize preparing a framework release or rewriting installation evidence. The manifest does not hash itself; installation state records its digest and source commit. Source-only documentation commits are not automatically framework payload updates.
 
 Source-only `scripts/init.ps1` provides remote bootstrap/recovery from a trusted configuration-aware source. Capture the caller's filesystem directory and require the target Git root; do not derive an `irm | iex` target from script-file variables. Resolve one commit, verify configuration support and validate all handlers before writes, back up replacements, preserve project config/facts and existing audit/installation sections, and deploy both BAT handlers and required PowerShell helpers. Initialize missing config only from the supported neutral seed; do not replace existing config. Bootstrap does not silently synchronize full payload or exit the caller's shell. Payload hashes establish consistency, not independent authentication of bootstrap code already executed.
 
@@ -211,6 +211,16 @@ Use [codedesign.md](codedesign.md) and [UIUX.md](UIUX.md) as applicable. Running
 Computer Use project testing defaults to `deny`. Read effective `project.verification.computerUse`: `inherit` follows applicable instructions/tool permissions, and a user's explicit applicable exception takes precedence over the configured default. Neither value grants tool permission or allows skipped required tests. Keep verification proportional to risk and provide recommended manual steps for behavior needing human acceptance.
 
 Distinguish passed, failed, and unperformed checks with reasons. Structural inspection does not prove runtime behavior. Follow task-specific testing limits, including static-only verification when requested.
+
+## Release versioning and approvals
+
+New release versions use `major.minor.patch-alpha`, `major.minor.patch-beta`, or `major.minor.patch-release`. Alpha and beta may add a positive numeric iteration, for example `1.5.0-alpha.1`. Use lowercase suffixes. Never create a new release with a bare numeric version. Preserve previously published versions, tags, and artifacts.
+
+Within the current major/minor line, advance the patch or progress through the suffixes or iteration numbers at the same numeric version. Obtain explicit approval before increasing major or minor. A request to release or a routine patch increment does not authorize a major/minor increase or use of the `-release` channel. Ask for explicit approval to publish that channel.
+
+Before any release commit, tag, push, or publication, show the proposed version and the actual public release copy and wait for the user's confirmation. If the user provides replacement release copy, use it verbatim. A replacement supplied as a revision is not authorization to publish unless the user also confirms proceeding. Keep version/channel approval and copy confirmation explicit; one user reply may cover all applicable decisions. After approval, use the confirmed copy in the public release and follow the repository's commit-message style.
+
+Use [prepare-release](../../.agents/skills/prepare-release/SKILL.md) for the workflow. Follow the distribution platform's own classification: for example, NuGet treats every suffix, including `-release`, as a prerelease. Keep the required version string and explain any channel distinction in the release copy.
 
 ## Delivery and records
 

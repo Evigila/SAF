@@ -29,8 +29,13 @@ try {
     $release = Get-SafRelease -Root $root -Repository $Repository -Ref $Ref -SourcePath $SourcePath
     $version = $release.manifest.frameworkVersion
     $installed = $state.installation
-    if ($installed -and [version]$version -lt [version]$installed.frameworkVersion -and -not $Force) { throw 'An intentional SAF downgrade requires -update -force.' }
-    if ($installed -and $version -eq $installed.frameworkVersion -and $release.manifestHash -ne $installed.manifestSha256) { throw 'Release content changed without a version increment.' }
+    if ($installed) {
+        $incomingVersion = ConvertTo-SafReleaseVersion $version -AllowLegacy
+        $installedVersion = ConvertTo-SafReleaseVersion $installed.frameworkVersion -AllowLegacy
+        $versionOrder = Compare-SafReleaseVersion $incomingVersion $installedVersion
+        if ($versionOrder -lt 0 -and -not $Force) { throw 'An intentional SAF downgrade requires -update -force.' }
+        if ($versionOrder -eq 0 -and $release.manifestHash -ne $installed.manifestSha256) { throw 'Release content changed without a version increment.' }
+    }
     $baseline = @{}
     foreach ($section in @($installed, $state.bootstrap)) {
         if (-not $section) { continue }

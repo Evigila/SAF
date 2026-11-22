@@ -7,6 +7,33 @@ $script:SafStartedAtUtc = [DateTime]::UtcNow.ToString('o')
 $script:SafOperationId = [Guid]::NewGuid().ToString('N')
 $script:SafHandlers = @('origin.bat', 'local.bat', 'scripts/origin.ps1', 'scripts/local.ps1', 'scripts/saf-core.ps1')
 
+function ConvertTo-SafReleaseVersion([string]$Value, [switch]$AllowLegacy) {
+    $pattern = '\A(?<number>(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))(?:-(?:(?<channel>alpha|beta)(?:\.(?<iteration>[1-9][0-9]*))?|(?<channel>release)))?\z'
+    $match = [regex]::Match($Value, $pattern)
+    $number = $null
+    if (-not $match.Success -or (-not $AllowLegacy -and -not $match.Groups['channel'].Success) -or
+        -not [version]::TryParse($match.Groups['number'].Value, [ref]$number)) {
+        throw "Invalid SAF release version '$Value'. Use major.minor.patch with an alpha, beta, or release suffix."
+    }
+    $channel = $match.Groups['channel'].Value
+    $rank = switch ($channel) {
+        'alpha' { 0 }
+        'beta' { 1 }
+        default { 2 } # A historical bare version has stable precedence.
+    }
+    return [pscustomobject]@{ Number = $number; Channel = $channel; Rank = $rank; Iteration = $match.Groups['iteration'].Value }
+}
+
+function Compare-SafReleaseVersion($Left, $Right) {
+    $comparison = $Left.Number.CompareTo($Right.Number)
+    if ($comparison -ne 0) { return $comparison }
+    $comparison = $Left.Rank.CompareTo($Right.Rank)
+    if ($comparison -ne 0) { return $comparison }
+    $comparison = $Left.Iteration.Length.CompareTo($Right.Iteration.Length)
+    if ($comparison -ne 0) { return $comparison }
+    return [string]::CompareOrdinal($Left.Iteration, $Right.Iteration)
+}
+
 function Get-SafByteHash([byte[]]$Bytes) {
     $algorithm = [Security.Cryptography.SHA256]::Create()
     try { return ([BitConverter]::ToString($algorithm.ComputeHash($Bytes))).Replace('-', '').ToLowerInvariant() }
@@ -601,7 +628,8 @@ function Get-SafRelease([string]$Root, [string]$Repository, [string]$Ref, [strin
             ($manifest.handlerProtocolVersion -isnot [int] -and $manifest.handlerProtocolVersion -isnot [long]) -or $manifest.handlerProtocolVersion -ne 3 -or
             -not $manifest.PSObject.Properties['configSupportVersion'] -or
             ($manifest.configSupportVersion -isnot [int] -and $manifest.configSupportVersion -isnot [long]) -or $manifest.configSupportVersion -ne 2) { throw '[SAF_REFRESH] Unsupported SAF configuration contract. Migrate project config to schema 2 and rerun the trusted remote scripts/init.ps1 bootstrap.' }
-        if ($manifest.frameworkVersion -notmatch '^\d+\.\d+\.\d+$' -or [version]$manifest.frameworkVersion -lt [version]'2.0.0') { throw 'Expected a SAF 2 release >= 2.0.0.' }
+        $frameworkVersion = ConvertTo-SafReleaseVersion $manifest.frameworkVersion -AllowLegacy
+        if ($frameworkVersion.Number -lt [version]'2.0.0') { throw 'Expected a SAF 2 release with numeric base >= 2.0.0.' }
         $payload = @{}
         foreach ($entry in @($manifest.files)) {
             Assert-SafRelative $entry.source; Assert-SafRelative $entry.target
